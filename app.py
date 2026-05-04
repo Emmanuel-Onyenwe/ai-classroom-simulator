@@ -1,6 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 import PyPDF2
+from gtts import gTTS
+import tempfile
 
 # 1. UI Configuration
 st.set_page_config(page_title="AI Classroom Simulator", layout="wide")
@@ -74,7 +76,20 @@ if student_input := st.chat_input("Raise your hand / Ask a question..."):
         
     full_context = f"{persona}\n\nCourse Material:\n{st.session_state.pdf_text}\n\nStudent asks: {student_input}"
     
-    with st.spinner("Teacher is thinking..."):
+   with st.spinner("Teacher is thinking..."):
+        # 1. Generate the Text
         response = model.generate_content(full_context)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.chat_message("assistant").write(response.text)
+        
+        # 2. Generate the Audio ($0 Budget TTS)
+        try:
+            # Create a temporary file to hold the MP3
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+                # We use tld='co.uk' to give the professor a slightly British, academic accent
+                tts = gTTS(text=response.text, lang='en', tld='co.uk')
+                tts.save(fp.name)
+                # Streamlit automatically plays the audio with autoplay=True
+                st.audio(fp.name, format="audio/mp3", autoplay=True)
+        except Exception as e:
+            st.error("Audio generation skipped. (Too much traffic or math formatting blocked it).")
