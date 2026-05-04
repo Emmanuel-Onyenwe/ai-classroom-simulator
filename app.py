@@ -14,7 +14,7 @@ with st.sidebar:
     st.header("⚙️ Classroom Setup")
     api_key = st.text_input("Enter Gemini API Key", type="password")
     uploaded_file = st.file_uploader("Drop your Course PDF here", type="pdf")
-    
+
     st.markdown("---")
     mode = st.radio(
         "Select Learning Mode:",
@@ -40,21 +40,18 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
     with st.spinner("Scanning course materials..."):
         pdf_reader = PyPDF2.PdfReader(uploaded_file)
         text = ""
-        # Scanning up to 25 pages to catch the MTH 105 math equations
         for page_num in range(min(25, len(pdf_reader.pages))):
             text += pdf_reader.pages[page_num].extract_text()
-        
+
         st.session_state.pdf_text = text
-        
-        # Determine Persona based on user selection
+
         if "Seminar" in mode:
             persona = "You are a conversational tutor. Keep explanations clean and text-based."
         else:
             persona = "You are a rigorous math professor at a chalkboard. Find math formulas and break them down step-by-step."
-            
-        # The Opening Hook
+
         prompt = f"{persona}\nWelcome the student to the course based on the text below. Ask if they want a 'Fresh Start' or have an 'Area of Concern'.\n\nCourse Text:\n{st.session_state.pdf_text}"
-        
+
         response = model.generate_content(prompt)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
 
@@ -62,34 +59,27 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
-# 7. Student Interaction (The Graceful Interruption)
+# 7. Student Interaction
 if student_input := st.chat_input("Raise your hand / Ask a question..."):
-    # Show student message
     st.session_state.messages.append({"role": "user", "content": student_input})
     st.chat_message("user").write(student_input)
-    
-    # AI Responds
+
     if "Seminar" in mode:
         persona = "You are a conversational tutor."
     else:
         persona = "You are a rigorous math professor. Output step-by-step math."
-        
+
     full_context = f"{persona}\n\nCourse Material:\n{st.session_state.pdf_text}\n\nStudent asks: {student_input}"
-    
-   with st.spinner("Teacher is thinking..."):
-        # 1. Generate the Text
+
+    with st.spinner("Teacher is thinking..."):
         response = model.generate_content(full_context)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.chat_message("assistant").write(response.text)
-        
-        # 2. Generate the Audio ($0 Budget TTS)
+
         try:
-            # Create a temporary file to hold the MP3
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
-                # We use tld='co.uk' to give the professor a slightly British, academic accent
                 tts = gTTS(text=response.text, lang='en', tld='co.uk')
                 tts.save(fp.name)
-                # Streamlit automatically plays the audio with autoplay=True
                 st.audio(fp.name, format="audio/mp3", autoplay=True)
         except Exception as e:
             st.error("Audio generation skipped. (Too much traffic or math formatting blocked it).")
