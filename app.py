@@ -57,6 +57,16 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
         
         response = model.generate_content(prompt)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
+        try:
+            # Create a temporary file to hold the MP3
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+                # We use tld='co.uk' to give the professor a slightly British, academic accent
+                tts = gTTS(text=response.text, lang='en', tld='co.uk')
+                tts.save(fp.name)
+                # Streamlit automatically plays the audio with autoplay=True
+                st.audio(fp.name, format="audio/mp3", autoplay=True)
+        except Exception as e:
+            st.error("Audio generation skipped. (Too much traffic or math formatting blocked it).")
 
 # 6. Draw the Chat UI
 for msg in st.session_state.messages:
