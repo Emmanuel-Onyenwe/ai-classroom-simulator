@@ -155,7 +155,6 @@ if student_input:
                 
                 # Clean text for Voice
                 voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
-                
                 custom_audio_html = ""
                 
                 # Generate Audio
@@ -170,38 +169,23 @@ if student_input:
                         audio_b64 = base64.b64encode(f.read()).decode()
                     
                     audio_id = f"audio_{len(st.session_state.messages)}"
-                    
-                    # Sanitize text so the Copy button doesn't break
                     safe_copy_text = ui_text.replace('\n', ' ').replace('"', '&quot;').replace("'", "&#39;")
                     
-                    # THE FIX: No leading spaces so Markdown doesn't turn it into a code block!
-                    custom_audio_html = f"""
-<audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay onended="document.getElementById('btn_{audio_id}').innerHTML = '🔊'"></audio>
-<div style="display: flex; gap: 15px; margin-top: 15px; align-items: center; color: #888;">
-    <button id="btn_{audio_id}" onclick="var aud = document.getElementById('{audio_id}'); if(aud.paused) {{ aud.play(); this.innerHTML = '⏸️'; }} else {{ aud.pause(); this.innerHTML = '🔊'; }}" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888; transition: 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'" title="Listen">⏸️</button>
-    <button onclick="navigator.clipboard.writeText('{safe_copy_text}'); this.innerHTML='✅'; setTimeout(()=>this.innerHTML='📋', 2000);" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888; transition: 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'" title="Copy Text">📋</button>
-    <button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">👍</button>
-    <button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">👎</button>
-    <button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">🔄</button>
-</div>
-"""
-                            
-                            <!-- Copy Button -->
-                            <button onclick="navigator.clipboard.writeText('{safe_copy_text}'); this.innerHTML='✅'; setTimeout(()=>this.innerHTML='📋', 2000);" 
-                            style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888; transition: 0.2s;" 
-                            onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'" title="Copy Text">
-                                📋
-                            </button>
-
-                            <!-- Visual UI Buttons (Like, Dislike, Reload) -->
-                            <button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">👍</button>
-                            <button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">👎</button>
-                            <button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">🔄</button>
-                        </div>
-                    """
+                    # THE BULLETPROOF HTML FIX
+                    # Parentheses let us split it neatly in Python without breaking Streamlit's Markdown
+                    custom_audio_html = (
+                        f'<audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay '
+                        f'onended="document.getElementById(\'btn_{audio_id}\').innerHTML = \'🔊\'"></audio>'
+                        f'<div style="display: flex; gap: 15px; margin-top: 15px; align-items: center; color: #888;">'
+                        f'<button id="btn_{audio_id}" onclick="var aud = document.getElementById(\'{audio_id}\'); if(aud.paused) {{ aud.play(); this.innerHTML = \'⏸️\'; }} else {{ aud.pause(); this.innerHTML = \'🔊\'; }}" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888; transition: 0.2s;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'" title="Listen">⏸️</button>'
+                        f'<button onclick="navigator.clipboard.writeText(\'{safe_copy_text}\'); this.innerHTML=\'✅\'; setTimeout(()=>this.innerHTML=\'📋\', 2000);" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888; transition: 0.2s;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'" title="Copy Text">📋</button>'
+                        f'<button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">👍</button>'
+                        f'<button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">👎</button>'
+                        f'<button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">🔄</button>'
+                        f'</div>'
+                    )
                     
             except Exception as e:
-                # If audio fails, we don't crash, we just silently skip the icons
                 pass
         
         # Write the text and the new action bar to the screen
