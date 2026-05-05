@@ -15,12 +15,26 @@ with st.sidebar:
     st.header("⚙️ Classroom Setup")
     api_key = st.text_input("Enter Gemini API Key", type="password")
     uploaded_file = st.file_uploader("Drop your Course PDF here", type="pdf")
-
+    
     st.markdown("---")
     mode = st.radio(
         "Select Learning Mode:",
         ("Seminar Mode (Text & Concepts)", "Chalkboard Mode (Heavy Math)")
     )
+    
+    st.markdown("---")
+    voice_option = st.selectbox(
+        "🗣️ Select Teacher Voice:",
+        ("British Professor (Ryan)", "American Tutor (Aria)", "Nigerian Lecturer (Abeo)")
+    )
+    
+    # Map the visual name to the actual Edge TTS voice code
+    voice_mapping = {
+        "British Professor (Ryan)": "en-GB-RyanNeural",
+        "American Tutor (Aria)": "en-US-AriaNeural",
+        "Nigerian Lecturer (Abeo)": "en-NG-AbeoNeural"
+    }
+    selected_voice = voice_mapping[voice_option]
 
 # 3. Security Check
 if not api_key:
@@ -79,17 +93,17 @@ if student_input := st.chat_input("Raise your hand / Ask a question..."):
 
         # 2. Generate the Audio (High-Quality Neural Voice)
         try:
-            # We create an async function for the Edge TTS library
-            async def generate_speech(text, file_path):
-                # "en-GB-RyanNeural" is a great, clear British academic voice.
-                # Alternative: "en-US-AriaNeural" for a female American voice.
-                communicate = edge_tts.Communicate(text, "en-GB-RyanNeural")
+            # We pass the selected_voice into the async function
+            async def generate_speech(text, file_path, voice_id):
+                communicate = edge_tts.Communicate(text, voice_id)
                 await communicate.save(file_path)
 
-            # Create the temporary file and run the speech generator
+            # Create the file and run the generator
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
-                asyncio.run(generate_speech(response.text, fp.name))
-                st.audio(fp.name, format="audio/mp3", autoplay=True)
+                asyncio.run(generate_speech(response.text, fp.name, selected_voice))
+                
+                # The manual Sound Button! (autoplay=False prevents browser blocking)
+                st.audio(fp.name, format="audio/mp3", autoplay=False)
                 
         except Exception as e:
-            st.error(f"Audio generation skipped: {e}")
+            st.error(f"Audio generation failed: {e}")
