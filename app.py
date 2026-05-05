@@ -70,8 +70,19 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
 
         prompt = f"{persona}\nWelcome the student to the course based on the text below. Ask if they want a 'Fresh Start' or have an 'Area of Concern'.\n\nCourse Text:\n{st.session_state.pdf_text}"
 
-        response = model.generate_content(prompt)
-        st.session_state.messages.append({"role": "assistant", "content": response.text})
+        # ✅ NOW PROTECTED — same handling as section 7
+        try:
+            response = model.generate_content(prompt)
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
+        except ResourceExhausted:
+            # Reset so the user can retry after waiting
+            st.session_state.pdf_text = ""
+            st.error("⚠️ The professor needs a quick sip of water! We hit the free-tier speed limit. Please wait 60 seconds and re-upload your PDF.")
+            st.stop()
+        except Exception as e:
+            st.session_state.pdf_text = ""
+            st.error(f"Failed to generate the opening lecture: {e}")
+            st.stop()
 
 # 6. Draw the Chat UI (Now with memory for the Audio Buttons!)
 for msg in st.session_state.messages:
