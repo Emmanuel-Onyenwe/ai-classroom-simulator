@@ -6,6 +6,7 @@ import asyncio
 import tempfile
 import re
 import base64
+from google.api_core.exceptions import ResourceExhausted
 
 # 1. UI Configuration
 st.set_page_config(page_title="AI Classroom Simulator", layout="wide")
@@ -99,10 +100,16 @@ if student_input := st.chat_input("Raise your hand / Ask a question..."):
     
     # 3. Anchor the AI Response at the bottom
     with st.chat_message("assistant"):
-        # Anchor the spinner inside the chat bubble
         with st.spinner("Teacher is thinking..."):
-            response = model.generate_content(full_context)
-            raw_text = response.text
+            try:
+                # We TRY to get a response from Google
+                response = model.generate_content(full_context)
+                raw_text = response.text
+                
+            except ResourceExhausted:
+                # If Google says we are going too fast, we gracefully stop and warn the user
+                st.error("⚠️ The professor needs a quick sip of water! We hit the free-tier speed limit. Please wait 60 seconds and ask your question again.")
+                st.stop() # This stops the rest of the code from running and crashing
             
             # Clean text for UI
             ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
