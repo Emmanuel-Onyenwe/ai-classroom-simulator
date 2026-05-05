@@ -54,12 +54,12 @@ if "messages" not in st.session_state:
 if "pdf_text" not in st.session_state:
     st.session_state.pdf_text = ""
 
-# ── Helper: safe generate with retries ──────────────────────────────────────
-def safe_generate(prompt, retries=3, wait=65):
-    """Calls Gemini with automatic retry on rate-limit errors."""
+# ── Helper: safe generate with retries (Now using Chat Memory) ──────────────
+def safe_generate_chat(chat_session, message, retries=3, wait=65):
+    """Calls Gemini Chat with automatic retry on rate-limit errors."""
     for attempt in range(retries):
         try:
-            return model.generate_content(prompt)
+            return chat_session.send_message(message)
         except ResourceExhausted:
             if attempt < retries - 1:
                 with st.spinner(f"Rate limit hit — waiting {wait}s before retry {attempt + 1}/{retries - 1}..."):
@@ -74,7 +74,7 @@ def trim_text(text, max_chars=6000):
     return text[:max_chars] + "\n\n[...document trimmed to fit token budget...]" if len(text) > max_chars else text
 
 
-# 5. Ingestion & The Hook
+# 5. Ingestion & The Hook (Now giving the AI long-term memory)
 if uploaded_file is not None and st.session_state.pdf_text == "":
     with st.spinner("Scanning course materials..."):
         pdf_reader = PyPDF2.PdfReader(uploaded_file)
@@ -84,7 +84,6 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
         for page_num in range(start_page, end_page):
             text += pdf_reader.pages[page_num].extract_text()
 
-        # ✅ Trim before storing so every downstream call is also protected
         st.session_state.pdf_text = trim_text(text)
 
         if "Seminar" in mode:
@@ -92,14 +91,19 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
         else:
             persona = "You are a rigorous math professor at a chalkboard. Find math formulas and break them down step-by-step."
 
-        prompt = f"{persona}\nWelcome the student to the course based on the text below. Ask if they want a 'Fresh Start' or have an 'Area of Concern'.\n\nCourse Text:\n{st.session_state.pdf_text}"
+        # ✅ THE FIX: Start a continuous chat session and save it to Streamlit's memory
+        st.session_state.chat = model.start_chat(history=[])
+
+        # Build the ONE-TIME mega prompt
+        initial_prompt = f"{persona}\n\nHere is the course material. Keep this in mind for the rest of our conversation:\n{st.session_state.pdf_text}\n\nWelcome the student to the course based on the text above. Ask if they want a 'Fresh Start' or have an 'Area of Concern'."
 
         try:
-            response = safe_generate(prompt)
+            # We send the mega-prompt through the chat helper
+            response = safe_generate_chat(st.session_state.chat, initial_prompt)
             st.session_state.messages.append({"role": "assistant", "content": response.text})
         except ResourceExhausted:
             st.session_state.pdf_text = ""
-            st.error("⚠️ Still rate-limited after retries. Wait a few minutes, then re-upload.")
+            st.error("⚠️ Rate-limited on start. Wait a few minutes, then re-upload.")
             st.stop()
         except Exception as e:
             st.session_state.pdf_text = ""
@@ -137,21 +141,19 @@ if student_input:
     with st.chat_message("user"):
         st.write(student_input)
     
-    # 2. Build the AI Persona
+   # 2. The Lightweight Chat (NO PDF REQUIRED!)
+    # We just send a tiny reminder of the persona, and the student's question.
     if "Seminar" in mode:
-        persona = "You are a conversational tutor."
+        chat_message = f"(Remember: You are a conversational tutor. Hide thoughts in <thought> tags.)\n\nStudent asks: {student_input}"
     else:
-        persona = "You are a rigorous math professor. Output step-by-step math."
-        
-    persona += "\nIMPORTANT: If you need to think through a problem first, wrap your internal reasoning completely inside <thought>...</thought> tags. The text outside the tags is your final, clean answer."
-    full_context = f"{persona}\n\nCourse Material:\n{st.session_state.pdf_text}\n\nStudent asks: {student_input}"
+        chat_message = f"(Remember: You are a rigorous math professor. Output step-by-step math. Hide thoughts in <thought> tags.)\n\nStudent asks: {student_input}"
     
     # 3. Anchor the AI Response at the bottom
     with st.chat_message("assistant"):
         with st.spinner("Teacher is thinking..."):
             try:
                 # ✅ THE FIX: Use Claude's retry helper here too!
-                response = safe_generate(full_context)
+                response = safe_generate_chat(st.session_state.chat, chat_message)
                 raw_text = response.text
                 
                 # Clean text for UI
