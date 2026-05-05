@@ -4,6 +4,8 @@ import PyPDF2
 import edge_tts
 import asyncio
 import tempfile
+import re
+import base64
 
 # 1. UI Configuration
 st.set_page_config(page_title="AI Classroom Simulator", layout="wide")
@@ -74,36 +76,61 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
-# 7. Student Interaction
+# 7. Student Interaction (The Graceful Interruption)
 if student_input := st.chat_input("Raise your hand / Ask a question..."):
+    # Show student message
     st.session_state.messages.append({"role": "user", "content": student_input})
     st.chat_message("user").write(student_input)
-
+    
+    # AI Responds
     if "Seminar" in mode:
         persona = "You are a conversational tutor."
     else:
         persona = "You are a rigorous math professor. Output step-by-step math."
-
+        
+    # THE FIX: Tell the AI to keep its thoughts hidden
+    persona += "\nIMPORTANT: If you need to think through a problem first, wrap your internal reasoning completely inside <thought>...</thought> tags. The text outside the tags is your final, clean answer that will be spoken to the student."
+        
     full_context = f"{persona}\n\nCourse Material:\n{st.session_state.pdf_text}\n\nStudent asks: {student_input}"
-
+    
     with st.spinner("Teacher is thinking..."):
         response = model.generate_content(full_context)
-        st.session_state.messages.append({"role": "assistant", "content": response.text})
-        st.chat_message("assistant").write(response.text)
-
-        # 2. Generate the Audio (High-Quality Neural Voice)
+        raw_text = response.text
+        
+        # THE FIX: Clean the text for UI (Remove the <thought> block so you don't read it)
+        ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
+        if not ui_text: ui_text = raw_text # Fallback if AI forgets tags
+        
+        st.session_state.messages.append({"role": "assistant", "content": ui_text})
+        st.chat_message("assistant").write(ui_text)
+        
+        # THE FIX: Clean the text for Voice (Strip markdown symbols so it doesn't speak them)
+        voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
+        
+        # Generate the Audio
         try:
-            # We pass the selected_voice into the async function
             async def generate_speech(text, file_path, voice_id):
                 communicate = edge_tts.Communicate(text, voice_id)
                 await communicate.save(file_path)
 
-            # Create the file and run the generator
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
-                asyncio.run(generate_speech(response.text, fp.name, selected_voice))
+                asyncio.run(generate_speech(voice_text, fp.name, selected_voice))
                 
-                # The manual Sound Button! (autoplay=False prevents browser blocking)
-                st.audio(fp.name, format="audio/mp3", autoplay=False)
+                # THE FIX: Create a sleek Base64 Speaker Button instead of the bulky player
+                with open(fp.name, "rb") as f:
+                    audio_b64 = base64.b64encode(f.read()).decode()
+                
+                # We use the length of messages to give each audio button a unique HTML ID
+                audio_id = f"audio_{len(st.session_state.messages)}"
+                
+                custom_audio_html = f"""
+                    <audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay></audio>
+                    <button onclick="document.getElementById('{audio_id}').play()" 
+                        style="background: none; border: 1px solid #4ade80; border-radius: 5px; font-size: 1rem; cursor: pointer; color: #4ade80; padding: 5px 15px; margin-top: 10px;">
+                        🔊 Listen
+                    </button>
+                """
+                st.markdown(custom_audio_html, unsafe_allow_html=True)
                 
         except Exception as e:
             st.error(f"Audio generation failed: {e}")
