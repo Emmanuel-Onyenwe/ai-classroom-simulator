@@ -12,7 +12,7 @@ from google.api_core.exceptions import ResourceExhausted
 # 1. UI Configuration
 st.set_page_config(page_title="AI Classroom Simulator", layout="wide")
 st.title("👨‍🏫 AI Classroom Simulator")
-st.caption("Powered by Gemini 2.5 Flash")
+st.caption("Powered by Gemini 1.5 Flash")
 
 # 2. The Sidebar (Engine & Settings)
 with st.sidebar:
@@ -46,7 +46,7 @@ if not api_key:
     st.stop()
 
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 # 4. Memory (Remembering the chat and PDF)
 if "messages" not in st.session_state:
