@@ -145,19 +145,25 @@ if student_input:
     # 3. Anchor the AI Response
     with st.chat_message("assistant"):
         with st.spinner("Teacher is thinking..."):
+            
+            # --- PART 1: TEXT GENERATION (Critical) ---
+            # If this fails, safe_generate_chat will handle it or throw a proper error
+            response = safe_generate_chat(st.session_state.chat, chat_message)
+            raw_text = response.text
+            
+            # Clean text for UI
+            ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
+            if not ui_text: ui_text = raw_text
+            
+            # Clean text for Voice
+            voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
+            
+            custom_audio_html = ""
+            safe_copy_text = ui_text.replace('\n', ' ').replace('"', '&quot;').replace("'", "&#39;")
+            
+            # --- PART 2: AUDIO GENERATION (Optional) ---
+            # If the audio breaks, we just catch the error silently and show the text anyway!
             try:
-                response = safe_generate_chat(st.session_state.chat, chat_message)
-                raw_text = response.text
-                
-                # Clean text for UI
-                ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
-                if not ui_text: ui_text = raw_text
-                
-                # Clean text for Voice
-                voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
-                custom_audio_html = ""
-                
-                # Generate Audio
                 async def generate_speech(text, file_path, voice_id):
                     communicate = edge_tts.Communicate(text, voice_id, rate="-15%")
                     await communicate.save(file_path)
@@ -169,10 +175,8 @@ if student_input:
                         audio_b64 = base64.b64encode(f.read()).decode()
                     
                     audio_id = f"audio_{len(st.session_state.messages)}"
-                    safe_copy_text = ui_text.replace('\n', ' ').replace('"', '&quot;').replace("'", "&#39;")
                     
-                    # THE BULLETPROOF HTML FIX
-                    # Parentheses let us split it neatly in Python without breaking Streamlit's Markdown
+                    # The Bulletproof HTML
                     custom_audio_html = (
                         f'<audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay '
                         f'onended="document.getElementById(\'btn_{audio_id}\').innerHTML = \'🔊\'"></audio>'
@@ -184,11 +188,11 @@ if student_input:
                         f'<button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#888\'">🔄</button>'
                         f'</div>'
                     )
-                    
             except Exception as e:
+                # We do nothing here. The app will just skip the icons and print the text!
                 pass
         
-        # Write the text and the new action bar to the screen
+        # --- PART 3: DRAW TO SCREEN ---
         st.write(ui_text)
         if custom_audio_html:
             st.markdown(custom_audio_html, unsafe_allow_html=True)
