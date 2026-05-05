@@ -82,7 +82,22 @@ for msg in st.session_state.messages:
             st.markdown(msg["audio_html"], unsafe_allow_html=True)
 
 # 7. Student Interaction (The Graceful Interruption)
-if student_input := st.chat_input("Raise your hand / Ask a question..."):
+
+# We create a variable to hold the student's message, whether from a button or typing
+student_input = None
+
+# THE FIX 2: Create a sleek "Raise Hand" quick action bubble
+col1, col2, col3 = st.columns([1.5, 8, 1])
+with col1:
+    if st.button("✋ Raise Hand", help="Click to interrupt the professor"):
+        student_input = "✋ Excuse me, professor. I have a question about that."
+
+# The standard chat bar (in case you still want to type specific math questions)
+if typed_input := st.chat_input("Or type your specific question..."):
+    student_input = typed_input
+
+# If the student clicked the button OR typed a message, trigger the AI
+if student_input:
     
     # 1. Show student message immediately
     st.session_state.messages.append({"role": "user", "content": student_input})
@@ -102,25 +117,18 @@ if student_input := st.chat_input("Raise your hand / Ask a question..."):
     with st.chat_message("assistant"):
         with st.spinner("Teacher is thinking..."):
             try:
-                # We TRY to get a response from Google
                 response = model.generate_content(full_context)
                 raw_text = response.text
                 
-            except ResourceExhausted:
-                # If Google says we are going too fast, we gracefully stop and warn the user
-                st.error("⚠️ The professor needs a quick sip of water! We hit the free-tier speed limit. Please wait 60 seconds and ask your question again.")
-                st.stop() # This stops the rest of the code from running and crashing
-            
-            # Clean text for UI
-            ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
-            if not ui_text: ui_text = raw_text
-            
-            # Clean text for Voice
-            voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
-            
-            custom_audio_html = ""
-            try:
-                # THE FIX: Reduce the speaking rate by 15% to force natural pauses
+                # Clean text for UI
+                ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
+                if not ui_text: ui_text = raw_text
+                
+                # Clean text for Voice
+                voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
+                
+                custom_audio_html = ""
+                
                 async def generate_speech(text, file_path, voice_id):
                     communicate = edge_tts.Communicate(text, voice_id, rate="-15%")
                     await communicate.save(file_path)
@@ -132,13 +140,25 @@ if student_input := st.chat_input("Raise your hand / Ask a question..."):
                         audio_b64 = base64.b64encode(f.read()).decode()
                     
                     audio_id = f"audio_{len(st.session_state.messages)}"
+                    
+                    # THE FIX 1: The Smart Play/Pause Button
                     custom_audio_html = f"""
-                        <audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay></audio>
-                        <button onclick="document.getElementById('{audio_id}').play()" 
-                            style="background: none; border: 1px solid #4ade80; border-radius: 5px; font-size: 0.9rem; cursor: pointer; color: #4ade80; padding: 4px 12px; margin-top: 10px;">
+                        <audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay 
+                            onplay="document.getElementById('btn_{audio_id}').innerText = '⏸️ Pause'"
+                            onpause="document.getElementById('btn_{audio_id}').innerText = '🔊 Listen'"
+                            onended="document.getElementById('btn_{audio_id}').innerText = '🔊 Listen'">
+                        </audio>
+                        <button id="btn_{audio_id}" onclick="
+                            var aud = document.getElementById('{audio_id}');
+                            if(aud.paused) {{ aud.play(); }} else {{ aud.pause(); }}
+                        " style="background: none; border: 1px solid #4ade80; border-radius: 20px; font-size: 0.9rem; cursor: pointer; color: #4ade80; padding: 6px 16px; margin-top: 10px; transition: 0.2s;">
                             🔊 Listen
                         </button>
                     """
+                    
+            except ResourceExhausted:
+                st.error("⚠️ The professor needs a quick sip of water! We hit the free-tier speed limit. Please wait 60 seconds and try again.")
+                st.stop()
             except Exception as e:
                 st.error(f"Audio generation failed: {e}")
         
@@ -147,9 +167,11 @@ if student_input := st.chat_input("Raise your hand / Ask a question..."):
         if custom_audio_html:
             st.markdown(custom_audio_html, unsafe_allow_html=True)
             
-        # THE FIX: Save EVERYTHING to memory so it survives a page refresh
+        # Save EVERYTHING to memory
         st.session_state.messages.append({
             "role": "assistant", 
             "content": ui_text,
+            "audio_html": custom_audio_html
+        })
             "audio_html": custom_audio_html
         })
