@@ -58,7 +58,11 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
     with st.spinner("Scanning course materials..."):
         pdf_reader = PyPDF2.PdfReader(uploaded_file)
         text = ""
-        for page_num in range(min(25, len(pdf_reader.pages))):
+        
+        # ✅ OUR DIET FIX: Only read a few pages so we don't hit the limit!
+        start_page = 15 # Change this to wherever your math equations actually start
+        end_page = min(19, len(pdf_reader.pages)) 
+        for page_num in range(start_page, end_page):
             text += pdf_reader.pages[page_num].extract_text()
 
         st.session_state.pdf_text = text
@@ -70,6 +74,20 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
 
         prompt = f"{persona}\nWelcome the student to the course based on the text below. Ask if they want a 'Fresh Start' or have an 'Area of Concern'.\n\nCourse Text:\n{st.session_state.pdf_text}"
 
+        # ✅ CLAUDE'S PROTECTED HOOK
+        try:
+            response = model.generate_content(prompt)
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
+        except ResourceExhausted:
+            # Reset so the user can retry after waiting
+            st.session_state.pdf_text = ""
+            st.error("⚠️ The professor needs a quick sip of water! We hit the free-tier speed limit. Please wait 60 seconds and re-upload your PDF.")
+            st.stop()
+        except Exception as e:
+            st.session_state.pdf_text = ""
+            st.error(f"Failed to generate the opening lecture: {e}")
+            st.stop()
+            
         # ✅ NOW PROTECTED — same handling as section 7
         try:
             response = model.generate_content(prompt)
