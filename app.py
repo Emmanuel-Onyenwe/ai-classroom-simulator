@@ -110,49 +110,42 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
             st.error(f"Failed to generate the opening lecture: {e}")
             st.stop()
             
-# 6. Draw the Chat UI (Now with memory for the Audio Buttons!)
+# 6. Draw the Chat UI
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
-        # If this message has an audio button saved, draw it!
         if "audio_html" in msg and msg["audio_html"]:
             st.markdown(msg["audio_html"], unsafe_allow_html=True)
 
-# 7. Student Interaction (The Graceful Interruption)
-
-# We create a variable to hold the student's message, whether from a button or typing
+# 7. Student Interaction (With Sleek Action Bar)
 student_input = None
 
-# THE FIX 2: Create a sleek "Raise Hand" quick action bubble
-col1, col2, col3 = st.columns([1.5, 8, 1])
+# The "Raise Hand" Quick Action
+col1, col2 = st.columns([2, 8])
 with col1:
-    if st.button("✋ Raise Hand", help="Click to interrupt the professor"):
+    if st.button("✋ Raise Hand"):
         student_input = "✋ Excuse me, professor. I have a question about that."
 
-# The standard chat bar (in case you still want to type specific math questions)
+# The Chat Bar
 if typed_input := st.chat_input("Or type your specific question..."):
     student_input = typed_input
 
-# If the student clicked the button OR typed a message, trigger the AI
 if student_input:
-    
-    # 1. Show student message immediately
+    # 1. Show student message
     st.session_state.messages.append({"role": "user", "content": student_input})
     with st.chat_message("user"):
         st.write(student_input)
     
-   # 2. The Lightweight Chat (NO PDF REQUIRED!)
-    # We just send a tiny reminder of the persona, and the student's question.
+    # 2. The Lightweight Chat Request
     if "Seminar" in mode:
         chat_message = f"(Remember: You are a conversational tutor. Hide thoughts in <thought> tags.)\n\nStudent asks: {student_input}"
     else:
         chat_message = f"(Remember: You are a rigorous math professor. Output step-by-step math. Hide thoughts in <thought> tags.)\n\nStudent asks: {student_input}"
     
-    # 3. Anchor the AI Response at the bottom
+    # 3. Anchor the AI Response
     with st.chat_message("assistant"):
         with st.spinner("Teacher is thinking..."):
             try:
-                # ✅ THE FIX: Use Claude's retry helper here too!
                 response = safe_generate_chat(st.session_state.chat, chat_message)
                 raw_text = response.text
                 
@@ -165,6 +158,7 @@ if student_input:
                 
                 custom_audio_html = ""
                 
+                # Generate Audio
                 async def generate_speech(text, file_path, voice_id):
                     communicate = edge_tts.Communicate(text, voice_id, rate="-15%")
                     await communicate.save(file_path)
@@ -177,32 +171,50 @@ if student_input:
                     
                     audio_id = f"audio_{len(st.session_state.messages)}"
                     
+                    # Sanitize text so the Copy button doesn't break
+                    safe_copy_text = ui_text.replace('\n', ' ').replace('"', '&quot;').replace("'", "&#39;")
+                    
+                    # THE FIX: Premium Native UI Action Bar
                     custom_audio_html = f"""
-                        <audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay 
-                            onplay="document.getElementById('btn_{audio_id}').innerText = '⏸️ Pause'"
-                            onpause="document.getElementById('btn_{audio_id}').innerText = '🔊 Listen'"
-                            onended="document.getElementById('btn_{audio_id}').innerText = '🔊 Listen'">
+                        <audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay
+                            onended="document.getElementById('btn_{audio_id}').innerHTML = '🔊'">
                         </audio>
-                        <button id="btn_{audio_id}" onclick="
-                            var aud = document.getElementById('{audio_id}');
-                            if(aud.paused) {{ aud.play(); }} else {{ aud.pause(); }}
-                        " style="background: none; border: 1px solid #4ade80; border-radius: 20px; font-size: 0.9rem; cursor: pointer; color: #4ade80; padding: 6px 16px; margin-top: 10px; transition: 0.2s;">
-                            🔊 Listen
-                        </button>
+                        
+                        <div style="display: flex; gap: 15px; margin-top: 15px; align-items: center; color: #888;">
+                            <!-- Listen/Pause Button -->
+                            <button id="btn_{audio_id}" onclick="
+                                var aud = document.getElementById('{audio_id}');
+                                if(aud.paused) {{ aud.play(); this.innerHTML = '⏸️'; }} 
+                                else {{ aud.pause(); this.innerHTML = '🔊'; }}
+                            " style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888; transition: 0.2s;" 
+                            onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'" title="Listen">
+                                ⏸️
+                            </button>
+                            
+                            <!-- Copy Button -->
+                            <button onclick="navigator.clipboard.writeText('{safe_copy_text}'); this.innerHTML='✅'; setTimeout(()=>this.innerHTML='📋', 2000);" 
+                            style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888; transition: 0.2s;" 
+                            onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'" title="Copy Text">
+                                📋
+                            </button>
+
+                            <!-- Visual UI Buttons (Like, Dislike, Reload) -->
+                            <button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">👍</button>
+                            <button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">👎</button>
+                            <button style="background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; color: #888;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">🔄</button>
+                        </div>
                     """
                     
-            except ResourceExhausted:
-                st.error("⚠️ Still rate-limited after retries. The professor is taking a break.")
-                st.stop()
             except Exception as e:
-                st.error(f"Audio generation failed: {e}")
+                # If audio fails, we don't crash, we just silently skip the icons
+                pass
         
-        # Write the text and the button to the screen
+        # Write the text and the new action bar to the screen
         st.write(ui_text)
         if custom_audio_html:
             st.markdown(custom_audio_html, unsafe_allow_html=True)
             
-        # Save EVERYTHING to memory
+        # Save to memory
         st.session_state.messages.append({
             "role": "assistant", 
             "content": ui_text,
