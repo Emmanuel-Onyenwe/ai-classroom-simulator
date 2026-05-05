@@ -173,5 +173,3 @@ if student_input:
             "content": ui_text,
             "audio_html": custom_audio_html
         })
-            "audio_html": custom_audio_html
-        })
