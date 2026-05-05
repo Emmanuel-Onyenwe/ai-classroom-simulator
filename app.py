@@ -1,7 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 import PyPDF2
-from gtts import gTTS
+import edge_tts
+import asyncio
 import tempfile
 
 # 1. UI Configuration
@@ -76,10 +77,19 @@ if student_input := st.chat_input("Raise your hand / Ask a question..."):
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.chat_message("assistant").write(response.text)
 
+        # 2. Generate the Audio (High-Quality Neural Voice)
         try:
+            # We create an async function for the Edge TTS library
+            async def generate_speech(text, file_path):
+                # "en-GB-RyanNeural" is a great, clear British academic voice.
+                # Alternative: "en-US-AriaNeural" for a female American voice.
+                communicate = edge_tts.Communicate(text, "en-GB-RyanNeural")
+                await communicate.save(file_path)
+
+            # Create the temporary file and run the speech generator
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
-                tts = gTTS(text=response.text, lang='en', tld='co.uk')
-                tts.save(fp.name)
+                asyncio.run(generate_speech(response.text, fp.name))
                 st.audio(fp.name, format="audio/mp3", autoplay=True)
+                
         except Exception as e:
-            st.error("Audio generation skipped. (Too much traffic or math formatting blocked it).")
+            st.error(f"Audio generation skipped: {e}")
