@@ -72,65 +72,77 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
         response = model.generate_content(prompt)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
 
-# 6. Draw the Chat UI
+# 6. Draw the Chat UI (Now with memory for the Audio Buttons!)
 for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+        # If this message has an audio button saved, draw it!
+        if "audio_html" in msg and msg["audio_html"]:
+            st.markdown(msg["audio_html"], unsafe_allow_html=True)
 
 # 7. Student Interaction (The Graceful Interruption)
 if student_input := st.chat_input("Raise your hand / Ask a question..."):
-    # Show student message
-    st.session_state.messages.append({"role": "user", "content": student_input})
-    st.chat_message("user").write(student_input)
     
-    # AI Responds
+    # 1. Show student message immediately
+    st.session_state.messages.append({"role": "user", "content": student_input})
+    with st.chat_message("user"):
+        st.write(student_input)
+    
+    # 2. Build the AI Persona
     if "Seminar" in mode:
         persona = "You are a conversational tutor."
     else:
         persona = "You are a rigorous math professor. Output step-by-step math."
         
-    # THE FIX: Tell the AI to keep its thoughts hidden
-    persona += "\nIMPORTANT: If you need to think through a problem first, wrap your internal reasoning completely inside <thought>...</thought> tags. The text outside the tags is your final, clean answer that will be spoken to the student."
-        
+    persona += "\nIMPORTANT: If you need to think through a problem first, wrap your internal reasoning completely inside <thought>...</thought> tags. The text outside the tags is your final, clean answer."
     full_context = f"{persona}\n\nCourse Material:\n{st.session_state.pdf_text}\n\nStudent asks: {student_input}"
     
-    with st.spinner("Teacher is thinking..."):
-        response = model.generate_content(full_context)
-        raw_text = response.text
-        
-        # THE FIX: Clean the text for UI (Remove the <thought> block so you don't read it)
-        ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
-        if not ui_text: ui_text = raw_text # Fallback if AI forgets tags
-        
-        st.session_state.messages.append({"role": "assistant", "content": ui_text})
-        st.chat_message("assistant").write(ui_text)
-        
-        # THE FIX: Clean the text for Voice (Strip markdown symbols so it doesn't speak them)
-        voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
-        
-        # Generate the Audio
-        try:
-            async def generate_speech(text, file_path, voice_id):
-                communicate = edge_tts.Communicate(text, voice_id)
-                await communicate.save(file_path)
+    # 3. Anchor the AI Response at the bottom
+    with st.chat_message("assistant"):
+        # Anchor the spinner inside the chat bubble
+        with st.spinner("Teacher is thinking..."):
+            response = model.generate_content(full_context)
+            raw_text = response.text
+            
+            # Clean text for UI
+            ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
+            if not ui_text: ui_text = raw_text
+            
+            # Clean text for Voice
+            voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
+            
+            custom_audio_html = ""
+            try:
+                # THE FIX: Reduce the speaking rate by 15% to force natural pauses
+                async def generate_speech(text, file_path, voice_id):
+                    communicate = edge_tts.Communicate(text, voice_id, rate="-15%")
+                    await communicate.save(file_path)
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
-                asyncio.run(generate_speech(voice_text, fp.name, selected_voice))
-                
-                # THE FIX: Create a sleek Base64 Speaker Button instead of the bulky player
-                with open(fp.name, "rb") as f:
-                    audio_b64 = base64.b64encode(f.read()).decode()
-                
-                # We use the length of messages to give each audio button a unique HTML ID
-                audio_id = f"audio_{len(st.session_state.messages)}"
-                
-                custom_audio_html = f"""
-                    <audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay></audio>
-                    <button onclick="document.getElementById('{audio_id}').play()" 
-                        style="background: none; border: 1px solid #4ade80; border-radius: 5px; font-size: 1rem; cursor: pointer; color: #4ade80; padding: 5px 15px; margin-top: 10px;">
-                        🔊 Listen
-                    </button>
-                """
-                st.markdown(custom_audio_html, unsafe_allow_html=True)
-                
-        except Exception as e:
-            st.error(f"Audio generation failed: {e}")
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+                    asyncio.run(generate_speech(voice_text, fp.name, selected_voice))
+                    
+                    with open(fp.name, "rb") as f:
+                        audio_b64 = base64.b64encode(f.read()).decode()
+                    
+                    audio_id = f"audio_{len(st.session_state.messages)}"
+                    custom_audio_html = f"""
+                        <audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay></audio>
+                        <button onclick="document.getElementById('{audio_id}').play()" 
+                            style="background: none; border: 1px solid #4ade80; border-radius: 5px; font-size: 0.9rem; cursor: pointer; color: #4ade80; padding: 4px 12px; margin-top: 10px;">
+                            🔊 Listen
+                        </button>
+                    """
+            except Exception as e:
+                st.error(f"Audio generation failed: {e}")
+        
+        # Write the text and the button to the screen
+        st.write(ui_text)
+        if custom_audio_html:
+            st.markdown(custom_audio_html, unsafe_allow_html=True)
+            
+        # THE FIX: Save EVERYTHING to memory so it survives a page refresh
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": ui_text,
+            "audio_html": custom_audio_html
+        })
