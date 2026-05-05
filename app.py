@@ -6,6 +6,7 @@ import asyncio
 import tempfile
 import re
 import base64
+import time
 from google.api_core.exceptions import ResourceExhausted
 
 # 1. UI Configuration
@@ -53,19 +54,38 @@ if "messages" not in st.session_state:
 if "pdf_text" not in st.session_state:
     st.session_state.pdf_text = ""
 
+# ── Helper: safe generate with retries ──────────────────────────────────────
+def safe_generate(prompt, retries=3, wait=65):
+    """Calls Gemini with automatic retry on rate-limit errors."""
+    for attempt in range(retries):
+        try:
+            return model.generate_content(prompt)
+        except ResourceExhausted:
+            if attempt < retries - 1:
+                with st.spinner(f"Rate limit hit — waiting {wait}s before retry {attempt + 1}/{retries - 1}..."):
+                    time.sleep(wait)
+            else:
+                raise   # re-raise after final attempt
+        except Exception:
+            raise
+
+# ── Helper: trim text to a safe token budget (~6000 chars ≈ ~1500 tokens) ───
+def trim_text(text, max_chars=6000):
+    return text[:max_chars] + "\n\n[...document trimmed to fit token budget...]" if len(text) > max_chars else text
+
+
 # 5. Ingestion & The Hook
 if uploaded_file is not None and st.session_state.pdf_text == "":
     with st.spinner("Scanning course materials..."):
         pdf_reader = PyPDF2.PdfReader(uploaded_file)
         text = ""
-        
-        # ✅ OUR DIET FIX: Only read a few pages so we don't hit the limit!
-        start_page = 15 # Change this to wherever your math equations actually start
-        end_page = min(19, len(pdf_reader.pages)) 
+        start_page = 15
+        end_page = min(19, len(pdf_reader.pages))
         for page_num in range(start_page, end_page):
             text += pdf_reader.pages[page_num].extract_text()
 
-        st.session_state.pdf_text = text
+        # ✅ Trim before storing so every downstream call is also protected
+        st.session_state.pdf_text = trim_text(text)
 
         if "Seminar" in mode:
             persona = "You are a conversational tutor. Keep explanations clean and text-based."
@@ -74,20 +94,18 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
 
         prompt = f"{persona}\nWelcome the student to the course based on the text below. Ask if they want a 'Fresh Start' or have an 'Area of Concern'.\n\nCourse Text:\n{st.session_state.pdf_text}"
 
-        # ✅ CLAUDE'S PROTECTED HOOK
         try:
-            response = model.generate_content(prompt)
+            response = safe_generate(prompt)
             st.session_state.messages.append({"role": "assistant", "content": response.text})
         except ResourceExhausted:
-            # Reset so the user can retry after waiting
             st.session_state.pdf_text = ""
-            st.error("⚠️ The professor needs a quick sip of water! We hit the free-tier speed limit. Please wait 60 seconds and re-upload your PDF.")
+            st.error("⚠️ Still rate-limited after retries. Wait a few minutes, then re-upload.")
             st.stop()
         except Exception as e:
             st.session_state.pdf_text = ""
             st.error(f"Failed to generate the opening lecture: {e}")
             st.stop()
-
+            
 # 6. Draw the Chat UI (Now with memory for the Audio Buttons!)
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -132,7 +150,8 @@ if student_input:
     with st.chat_message("assistant"):
         with st.spinner("Teacher is thinking..."):
             try:
-                response = model.generate_content(full_context)
+                # ✅ THE FIX: Use Claude's retry helper here too!
+                response = safe_generate(full_context)
                 raw_text = response.text
                 
                 # Clean text for UI
@@ -156,7 +175,6 @@ if student_input:
                     
                     audio_id = f"audio_{len(st.session_state.messages)}"
                     
-                    # THE FIX 1: The Smart Play/Pause Button
                     custom_audio_html = f"""
                         <audio id="{audio_id}" src="data:audio/mp3;base64,{audio_b64}" autoplay 
                             onplay="document.getElementById('btn_{audio_id}').innerText = '⏸️ Pause'"
@@ -172,7 +190,7 @@ if student_input:
                     """
                     
             except ResourceExhausted:
-                st.error("⚠️ The professor needs a quick sip of water! We hit the free-tier speed limit. Please wait 60 seconds and try again.")
+                st.error("⚠️ Still rate-limited after retries. The professor is taking a break.")
                 st.stop()
             except Exception as e:
                 st.error(f"Audio generation failed: {e}")
