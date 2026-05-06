@@ -94,8 +94,8 @@ def make_action_bar(audio_b64: str, audio_id: str, message_text: str) -> str:
             ⏸️
         </button>"""
 
-    # Escape the message for safe embedding in a JS template literal
-    js_safe_text = message_text.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
+    # Escape just enough to be safe in HTML text nodes
+    safe_text = message_text.replace('"', '&quot;').replace("'", "&#39;").replace("<", "&lt;").replace(">", "&gt;")
 
     return f"""<!DOCTYPE html>
 <html>
@@ -113,26 +113,38 @@ def make_action_bar(audio_b64: str, audio_id: str, message_text: str) -> str:
 </head>
 <body>
   {audio_tag}
+  
+  <!-- THE FIX: Store text in a hidden div so quotes don't break the HTML attributes -->
+  <div id="text_{audio_id}" style="display:none;">{safe_text}</div>
+  
   <div class="bar">
     {listen_btn}
+    
+    <!-- Copy Button -->
     <button class="action-btn" title="Copy text"
-        onclick="navigator.clipboard.writeText(`{js_safe_text}`).then(() => {{
+        onclick="
+            var txt = document.getElementById('text_{audio_id}').innerText;
+            navigator.clipboard.writeText(txt).then(() => {{
               var t = document.getElementById('toast_{audio_id}');
-              t.style.opacity = 1; setTimeout(() => t.style.opacity = 0, 1800); }});">
+              t.style.opacity = 1; 
+              setTimeout(() => t.style.opacity = 0, 1800); 
+            }});
+        ">
       📋
     </button>
     <span class="toast" id="toast_{audio_id}">Copied!</span>
+    
+    <!-- Like / Dislike -->
     <button class="action-btn" id="like_{audio_id}" title="Good response" onclick="this.classList.toggle('liked'); document.getElementById('dislike_{audio_id}').classList.remove('disliked');">👍</button>
     <button class="action-btn" id="dislike_{audio_id}" title="Bad response" onclick="this.classList.toggle('disliked'); document.getElementById('like_{audio_id}').classList.remove('liked');">👎</button>
-    <button class="action-btn" title="Reload" onclick="window.parent.postMessage('retry', '*');">🔄</button>
   </div>
+  
   <script>
     var aud = document.getElementById('{audio_id}');
     if (aud) {{ setTimeout(() => aud.play().catch(() => {{}}), 400); }}
   </script>
 </body>
 </html>"""
-
 
 # 5. Ingestion & The Hook
 if uploaded_file is not None and st.session_state.pdf_text == "":
@@ -224,7 +236,8 @@ if student_input:
             audio_b64 = ""
             try:
                 async def generate_speech(text, file_path, voice_id):
-                    communicate = edge_tts.Communicate(text, voice_id, rate="-15%")
+                    # THE FIX: Slowed down to -10% for a more natural cadence
+                    communicate = edge_tts.Communicate(text, voice_id, rate="-10%")
                     await communicate.save(file_path)
 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
