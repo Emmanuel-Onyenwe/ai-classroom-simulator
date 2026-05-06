@@ -29,16 +29,7 @@ with st.sidebar:
         ("Seminar Mode (Text & Concepts)", "Chalkboard Mode (Heavy Math)")
     )
     
-   st.markdown("---")
-    
-    # The Memory Wipe Button
-    if st.button("🗑️ End Class (Clear Memory)"):
-        st.session_state.messages = []
-        st.session_state.pdf_text = ""
-        if "chat" in st.session_state:
-            del st.session_state.chat
-        st.rerun()
-        
+    st.markdown("---")
     voice_option = st.selectbox(
         "🗣️ Select Teacher Voice:",
         ("British Professor (Ryan)", "American Tutor (Aria)", "Nigerian Lecturer (Abeo)")
@@ -51,6 +42,37 @@ with st.sidebar:
         "Nigerian Lecturer (Abeo)": "en-NG-AbeoNeural"
     }
     selected_voice = voice_mapping[voice_option]
+
+    st.markdown("---")
+    st.subheader("📥 Export Notes")
+    
+    # Check if there are messages to download
+    if "messages" in st.session_state and len(st.session_state.messages) > 0:
+        # Build the Markdown document
+        lecture_notes = "# 👨‍🏫 AI Classroom Lecture Notes\n\n"
+        for msg in st.session_state.messages:
+            role = "🎓 **Student:**" if msg["role"] == "user" else "👨‍🏫 **Professor:**"
+            lecture_notes += f"{role}\n{msg['content']}\n\n---\n\n"
+        
+        # Create the download button
+        st.download_button(
+            label="Download as Markdown (.md)",
+            data=lecture_notes,
+            file_name="MTH_105_Lecture_Notes.md",
+            mime="text/markdown"
+        )
+    else:
+        st.info("Start the class to generate notes!")
+
+    st.markdown("---")
+    
+    # The Memory Wipe Button
+    if st.button("🗑️ End Class (Clear Memory)"):
+        st.session_state.messages = []
+        st.session_state.pdf_text = ""
+        if "chat" in st.session_state:
+            del st.session_state.chat
+        st.rerun()
 
 # 3. Security Check
 if not api_key:
