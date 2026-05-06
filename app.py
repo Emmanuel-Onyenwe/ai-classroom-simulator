@@ -191,13 +191,16 @@ if selected_voice != st.session_state.current_voice:
        with st.spinner("🎙️ Switching teacher's voice..."):
             last_msg = st.session_state.messages[-1]
             
-            # THE CHALKBOARD AUDIO FILTER (For Voice Switching)
-            voice_text = re.sub(r'\$\$.*?\$\$', ' [refer to the formula on the board] ', last_msg["content"], flags=re.DOTALL)
-            voice_text = voice_text.replace('$', '')
+           # THE DYNAMIC CHALKBOARD AUDIO FILTER (For Voice Switching)
+            voice_text = re.sub(
+                r'\$\$.*?\$\$', 
+                lambda match: ' ... ' * max(1, len(match.group(0)) // 15), 
+                last_msg["content"], 
+                flags=re.DOTALL
+            )
             
-            # THE FIX: Delete backslashes
-            voice_text = voice_text.replace('\\', '')
-            
+            # Clean up inline math and backslashes
+            voice_text = voice_text.replace('$', '').replace('\\', '')
             voice_text = re.sub(r'[*#_\-`]+', '', voice_text)
             
             # Record the new MP3
@@ -258,13 +261,17 @@ if student_input:
                 if not ui_text: 
                     ui_text = "I was just thinking about that. Could you clarify which part you'd like to break down?"
                 
-                # THE CHALKBOARD AUDIO FILTER
-                voice_text = re.sub(r'\$\$.*?\$\$', ' [refer to the formula on the board] ', ui_text, flags=re.DOTALL)
-                voice_text = voice_text.replace('$', '')
+               # THE DYNAMIC CHALKBOARD AUDIO FILTER
+                # Calculates length of math code: Adds one '...' pause per 15 characters!
+                voice_text = re.sub(
+                    r'\$\$.*?\$\$', 
+                    lambda match: ' ... ' * max(1, len(match.group(0)) // 15), 
+                    ui_text, 
+                    flags=re.DOTALL
+                )
                 
-                # THE FIX: Silently delete all backslashes so \times becomes "times"
-                voice_text = voice_text.replace('\\', '') 
-                
+                # Clean up inline math and backslashes
+                voice_text = voice_text.replace('$', '').replace('\\', '')
                 voice_text = re.sub(r'[*#_\-`]+', '', voice_text)
                 
             except ResourceExhausted:
