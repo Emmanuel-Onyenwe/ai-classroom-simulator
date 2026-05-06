@@ -212,7 +212,7 @@ if selected_voice != st.session_state.current_voice:
             st.session_state.messages[-1]["audio_html"] = new_action_bar
             
         # Instantly refresh the screen so the new play button is loaded
-        st.rerun()
+            st.rerun()
             
 # 6. Draw the Chat UI (✅ UPDATED TO USE COMPONENTS)
 for msg in st.session_state.messages:
