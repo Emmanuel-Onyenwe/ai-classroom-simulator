@@ -117,7 +117,7 @@ for msg in st.session_state.messages:
         if "audio_html" in msg and msg["audio_html"]:
             st.markdown(msg["audio_html"], unsafe_allow_html=True)
 
-# 7. Student Interaction (With Sleek Action Bar)
+# 7. Student Interaction (With Sleek Action Bar & Error Handling)
 student_input = None
 
 # The "Raise Hand" Quick Action
@@ -131,38 +131,47 @@ if typed_input := st.chat_input("Or type your specific question..."):
     student_input = typed_input
 
 if student_input:
-    # 1. Show student message
+    # BUG FIX 1: Prevent crash if user types before uploading a PDF
+    if "chat" not in st.session_state:
+        st.error("⚠️ Please upload your Course PDF first so the professor can review the materials!")
+        st.stop()
+
+    # Show student message
     st.session_state.messages.append({"role": "user", "content": student_input})
     with st.chat_message("user"):
         st.write(student_input)
     
-    # 2. The Lightweight Chat Request
+    # The Lightweight Chat Request
     if "Seminar" in mode:
         chat_message = f"(Remember: You are a conversational tutor. Hide thoughts in <thought> tags.)\n\nStudent asks: {student_input}"
     else:
         chat_message = f"(Remember: You are a rigorous math professor. Output step-by-step math. Hide thoughts in <thought> tags.)\n\nStudent asks: {student_input}"
     
-    # 3. Anchor the AI Response
+    # Anchor the AI Response
     with st.chat_message("assistant"):
         with st.spinner("Teacher is thinking..."):
             
-            # --- PART 1: TEXT GENERATION (Critical) ---
-            # If this fails, safe_generate_chat will handle it or throw a proper error
-            response = safe_generate_chat(st.session_state.chat, chat_message)
-            raw_text = response.text
-            
-            # Clean text for UI
-            ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
-            if not ui_text: ui_text = raw_text
-            
-            # Clean text for Voice
-            voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
-            
-            custom_audio_html = ""
-            safe_copy_text = ui_text.replace('\n', ' ').replace('"', '&quot;').replace("'", "&#39;")
-            
-            # --- PART 2: AUDIO GENERATION (Optional) ---
-            # If the audio breaks, we just catch the error silently and show the text anyway!
+            # --- PART 1: TEXT GENERATION (Now protected with a try/except) ---
+            try:
+                response = safe_generate_chat(st.session_state.chat, chat_message)
+                raw_text = response.text
+                
+                # Clean text for UI
+                ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
+                if not ui_text: ui_text = raw_text
+                
+                # Clean text for Voice
+                voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
+                
+                # BUG FIX 2: Safely escape math backslashes for the JavaScript copy button
+                safe_copy_text = ui_text.replace('\\', '\\\\').replace('\n', ' ').replace('"', '&quot;').replace("'", "&#39;")
+                custom_audio_html = ""
+                
+            except Exception as e:
+                st.error(f"⚠️ The professor ran into a network error: {e}")
+                st.stop() # Stop here so we don't crash the rest of the app
+
+            # --- PART 2: AUDIO GENERATION ---
             try:
                 async def generate_speech(text, file_path, voice_id):
                     communicate = edge_tts.Communicate(text, voice_id, rate="-15%")
@@ -189,7 +198,7 @@ if student_input:
                         f'</div>'
                     )
             except Exception as e:
-                # We do nothing here. The app will just skip the icons and print the text!
+                # Silently skip the audio icons if generation fails
                 pass
         
         # --- PART 3: DRAW TO SCREEN ---
