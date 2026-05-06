@@ -241,9 +241,7 @@ if student_input:
     if "Seminar" in mode:
         chat_message = f"(Conversational tutor. Put internal reasoning strictly inside <thought> tags, then write your final response below them.)\n\nStudent asks: {student_input}"
     else:
-        chat_message = f"(Rigorous math professor. Put internal reasoning strictly inside <thought> tags, then write your final response below them.)\n\nStudent asks: {student_input}"
-    
-    with st.chat_message("assistant"):
+        chat_message = f"(Remember: You are a rigorous math professor. Output step-by-step math. Hide thoughts in <thought> tags. IMPORTANT: You MUST format all mathematical symbols, equations, and variables using standard LaTeX. Use single $ for inline math and double $$ for standalone block equations. Do not use bolding for variables.)\n\nStudent asks: {student_input}"
         with st.spinner("Teacher is thinking..."):
             
             # --- PART 1: TEXT GENERATION ---
