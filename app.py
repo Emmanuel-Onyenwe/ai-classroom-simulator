@@ -251,6 +251,9 @@ if student_input:
         chat_message = f"(Conversational tutor. Put internal reasoning strictly inside <thought> tags, then write your final response below them.)\n\nStudent asks: {student_input}"
     else:
         chat_message = f"(Remember: You are a rigorous math professor. Output step-by-step math. Hide thoughts in <thought> tags. IMPORTANT: You MUST format all mathematical symbols, equations, and variables using standard LaTeX. Use single $ for inline math and double $$ for standalone block equations. Do not use bolding for variables.)\n\nStudent asks: {student_input}"
+    
+    # ✅ FIX: Un-indented so it runs for both modes, and added the chat bubble back!
+    with st.chat_message("assistant"):
         with st.spinner("Teacher is thinking..."):
             
             # --- PART 1: TEXT GENERATION ---
@@ -261,11 +264,10 @@ if student_input:
                 if not ui_text: 
                     ui_text = "I was just thinking about that. Could you clarify which part you'd like to break down?"
                 
-               # THE DYNAMIC CHALKBOARD AUDIO FILTER
-                # Calculates length of math code: Adds one '...' pause per 15 characters!
+                # ✅ THE FIX: Stronger periods (. . .) and divides by 8 for much longer pauses!
                 voice_text = re.sub(
                     r'\$\$.*?\$\$', 
-                    lambda match: ' ... ' * max(1, len(match.group(0)) // 15), 
+                    lambda match: '. . . ' * max(1, len(match.group(0)) // 8), 
                     ui_text, 
                     flags=re.DOTALL
                 )
@@ -285,7 +287,6 @@ if student_input:
             audio_b64 = ""
             try:
                 async def generate_speech(text, file_path, voice_id):
-                    # THE FIX: Slowed down to -10% for a more natural cadence
                     communicate = edge_tts.Communicate(text, voice_id, rate="-10%")
                     await communicate.save(file_path)
 
@@ -296,7 +297,7 @@ if student_input:
             except Exception as e:
                 pass # Silently skip audio if it fails
         
-        # --- PART 3: DRAW TO SCREEN (✅ UPDATED TO USE ACTION BAR) ---
+        # --- PART 3: DRAW TO SCREEN ---
         st.write(ui_text)
         
         audio_id = f"audio_{len(st.session_state.messages)}"
@@ -310,3 +311,16 @@ if student_input:
             "content": ui_text,
             "audio_html": action_bar_html
         })
+        
+        # Auto-Scroll down
+        components.html(
+            """
+            <script>
+                const doc = window.parent.document;
+                const messages = doc.querySelectorAll('.stChatMessage');
+                if (messages.length > 0) {
+                    messages[messages.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            </script>
+            """, height=0
+        )
