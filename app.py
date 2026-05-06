@@ -232,12 +232,15 @@ for msg in st.session_state.messages:
 
 # 7. Student Interaction
 student_input = None
-col1, col2 = st.columns([2, 8])
+col1, col2, col3 = st.columns([2, 2, 6])
 with col1:
     if st.button("✋ Raise Hand"):
         student_input = "✋ Excuse me, professor. I have a question about that."
+with col2:
+    if st.button("📝 Quiz Me"):
+        student_input = "📝 Professor, let's pause the lecture. Please give me a 3-question multiple-choice quiz based strictly on the course materials to test my knowledge. IMPORTANT: Ask the questions now, but DO NOT give me the answers until I respond!"
 
-if typed_input := st.chat_input("Type your specific question..."):
+if typed_input := st.chat_input("Type your specific question or quiz answers..."):
     student_input = typed_input
 
 if student_input:
