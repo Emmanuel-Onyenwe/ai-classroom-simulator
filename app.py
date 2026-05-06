@@ -194,6 +194,10 @@ if selected_voice != st.session_state.current_voice:
             # THE CHALKBOARD AUDIO FILTER (For Voice Switching)
             voice_text = re.sub(r'\$\$.*?\$\$', ' [refer to the formula on the board] ', last_msg["content"], flags=re.DOTALL)
             voice_text = voice_text.replace('$', '')
+            
+            # THE FIX: Delete backslashes
+            voice_text = voice_text.replace('\\', '')
+            
             voice_text = re.sub(r'[*#_\-`]+', '', voice_text)
             
             # Record the new MP3
