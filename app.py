@@ -9,6 +9,8 @@ import base64
 import time
 from google.api_core.exceptions import ResourceExhausted
 import streamlit.components.v1 as components # ✅ ADDED FOR THE UI FIX
+import numpy as np
+import pandas as pd
 
 # 1. UI Configuration
 st.set_page_config(page_title="AI Classroom Simulator", layout="wide")
@@ -250,7 +252,7 @@ if student_input:
     if "Seminar" in mode:
         chat_message = f"(Conversational tutor. Put internal reasoning strictly inside <thought> tags, then write your final response below them.)\n\nStudent asks: {student_input}"
     else:
-        chat_message = f"(Remember: You are a rigorous math professor. Output step-by-step math. Hide thoughts in <thought> tags. IMPORTANT: You MUST format all mathematical symbols, equations, and variables using standard LaTeX. Use single $ for inline math and double $$ for standalone block equations. Do not use bolding for variables.)\n\nStudent asks: {student_input}"
+        chat_message = f"(Remember: You are a rigorous math professor. Output step-by-step math. Hide thoughts in <thought> tags. IMPORTANT: You MUST format all mathematical symbols, equations, and variables using standard LaTeX. Use single $ for inline math and double $$ for standalone block equations. Do not use bolding for variables. IF the student asks to graph or visualize a function, output the raw Python formula using 'x' inside <plot> tags, like <plot>x**2</plot> or <plot>np.sin(x)</plot>.)\n\nStudent asks: {student_input}"
     
     # ✅ FIX: Un-indented so it runs for both modes, and added the chat bubble back!
     with st.chat_message("assistant"):
@@ -297,22 +299,47 @@ if student_input:
             except Exception as e:
                 pass # Silently skip audio if it fails
         
-        # --- PART 3: DRAW TO SCREEN ---
+        # --- PART 3: DRAW TO SCREEN (WITH INTERACTIVE GRAPHING) ---
+        
+        # 1. Check if the AI tried to draw a graph
+        plot_formula = None
+        plot_match = re.search(r'<plot>(.*?)</plot>', ui_text)
+        if plot_match:
+            plot_formula = plot_match.group(1).strip()
+            # Remove the raw <plot> tag from the text so the user doesn't see it
+            ui_text = re.sub(r'<plot>.*?</plot>', '', ui_text, flags=re.DOTALL).strip()
+        
+        # 2. Write the professor's text to the screen
         st.write(ui_text)
         
+        # 3. Draw the interactive graph if a formula was found!
+        if plot_formula:
+            try:
+                # Generate 400 data points from -10 to 10
+                x = np.linspace(-10, 10, 400)
+                # Safely evaluate the AI's formula
+                safe_dict = {"x": x, "np": np}
+                y = eval(plot_formula, {"__builtins__": None}, safe_dict)
+                
+                # Plot it using Streamlit's native interactive chart
+                df = pd.DataFrame({"x": x, "y": y}).set_index("x")
+                st.line_chart(df, use_container_width=True)
+            except Exception as e:
+                st.warning(f"⚠️ The professor's chalk broke while trying to graph: {plot_formula}")
+
+        # 4. Draw the action bar and audio
         audio_id = f"audio_{len(st.session_state.messages)}"
         action_bar_html = make_action_bar(audio_b64, audio_id, ui_text)
-        
         components.html(action_bar_html, height=54, scrolling=False)
             
-        # Save to memory
+        # 5. Save to memory
         st.session_state.messages.append({
             "role": "assistant", 
             "content": ui_text,
             "audio_html": action_bar_html
         })
         
-        # Auto-Scroll down
+        # 6. Auto-Scroll down
         components.html(
             """
             <script>
