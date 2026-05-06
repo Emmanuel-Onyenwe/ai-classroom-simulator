@@ -13,7 +13,7 @@ import streamlit.components.v1 as components # ✅ ADDED FOR THE UI FIX
 # 1. UI Configuration
 st.set_page_config(page_title="AI Classroom Simulator", layout="wide")
 st.title("👨‍🏫 AI Classroom Simulator")
-st.caption("Powered by Gemini 1.5 Flash") # Updated to 1.5 for quota limits!
+st.caption("Powered by Gemini 2.5 Flash") # Updated to 1.5 for quota limits!
 
 # 2. The Sidebar (Engine & Settings)
 with st.sidebar:
@@ -47,7 +47,7 @@ if not api_key:
     st.stop()
 
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-1.5-flash') # Using 1.5 for better rate limits
+model = genai.GenerativeModel('gemini-2.5-flash') # Using 1.5 for better rate limits
 
 # 4. Memory (Remembering the chat and PDF)
 if "messages" not in st.session_state:
