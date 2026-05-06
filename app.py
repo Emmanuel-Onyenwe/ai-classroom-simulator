@@ -193,9 +193,9 @@ if student_input:
         st.write(student_input)
     
     if "Seminar" in mode:
-        chat_message = f"(Remember: You are a conversational tutor. Hide thoughts in <thought> tags.)\n\nStudent asks: {student_input}"
+        chat_message = f"(Conversational tutor. Put internal reasoning strictly inside <thought> tags, then write your final response below them.)\n\nStudent asks: {student_input}"
     else:
-        chat_message = f"(Remember: You are a rigorous math professor. Output step-by-step math. Hide thoughts in <thought> tags.)\n\nStudent asks: {student_input}"
+        chat_message = f"(Rigorous math professor. Put internal reasoning strictly inside <thought> tags, then write your final response below them.)\n\nStudent asks: {student_input}"
     
     with st.chat_message("assistant"):
         with st.spinner("Teacher is thinking..."):
@@ -204,15 +204,21 @@ if student_input:
             try:
                 response = safe_generate_chat(st.session_state.chat, chat_message)
                 raw_text = response.text
-                ui_text = re.sub(r'<thought>.*?</thought>', '', raw_text, flags=re.DOTALL).strip()
-                if not ui_text: ui_text = raw_text
+                
+                # BUG FIX: Strip thoughts even if the AI forgets the closing tag!
+                ui_text = re.sub(r'<thought>.*?(?:</thought>|$)', '', raw_text, flags=re.DOTALL).strip()
+                
+                if not ui_text: 
+                    # Fallback if the AI accidentally *only* outputs a thought
+                    ui_text = "I was just thinking about that. Could you clarify which specific part of the math you'd like to break down?"
+                    
                 voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
             except ResourceExhausted:
                 st.error("⚠️ The professor ran out of daily free tokens!")
                 st.stop()
             except Exception as e:
                 st.error(f"⚠️ Network error: {e}")
-                st.stop() 
+                st.stop()
 
             # --- PART 2: AUDIO GENERATION ---
             audio_b64 = ""
