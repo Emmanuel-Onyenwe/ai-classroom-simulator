@@ -192,7 +192,7 @@ with col1:
     if st.button("✋ Raise Hand"):
         student_input = "✋ Excuse me, professor. I have a question about that."
 
-if typed_input := st.chat_input("Or type your specific question..."):
+if typed_input := st.chat_input("Type your specific question..."):
     student_input = typed_input
 
 if student_input:
