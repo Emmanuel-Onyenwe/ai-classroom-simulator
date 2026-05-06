@@ -7,18 +7,57 @@ import tempfile
 import re
 import base64
 import time
-import streamlit.components.v1 as components   # ← ADD THIS
+import streamlit.components.v1 as components 
 from google.api_core.exceptions import ResourceExhausted
 
-# ── Sections 1–5 unchanged ───────────────────────────────────────────────────
+# ── 1. Page Configuration ──────────────────────────────────────────────────────
+st.set_page_config(page_title="AI Classroom Simulator", page_icon="👨‍🏫", layout="wide")
 
+# ── 2. Session State Memory ───────────────────────────────────────────────────
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "pdf_text" not in st.session_state:
+    st.session_state.pdf_text = ""
 
-# ── Helper: build the sandboxed action bar ───────────────────────────────────
+# ── 3. Sidebar & API Setup ────────────────────────────────────────────────────
+with st.sidebar:
+    st.header("⚙️ Classroom Setup")
+    api_key = st.text_input("Enter Gemini API Key", type="password")
+    uploaded_file = st.file_uploader("Drop your Course PDF here", type="pdf")
+    
+    st.markdown("---")
+    mode = st.radio("Select Learning Mode:", ["Seminar Mode", "Chalkboard Mode (Heavy Math)"])
+    selected_voice = st.selectbox("Select Teacher Voice:", [
+        "en-GB-RyanNeural", "en-US-GuyNeural", "en-GB-SoniaNeural"
+    ])
+
+if not api_key:
+    st.warning("Please enter your Gemini API Key in the sidebar to begin.")
+    st.stop()
+
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-2.5-flash')
+
+# ── 4. Helper Functions ───────────────────────────────────────────────────────
+def safe_generate_chat(chat_session, message, retries=3, wait=65):
+    """Calls Gemini Chat with automatic retry on rate-limit errors."""
+    for attempt in range(retries):
+        try:
+            return chat_session.send_message(message)
+        except ResourceExhausted:
+            if attempt < retries - 1:
+                with st.spinner(f"Rate limit hit — waiting {wait}s before retry {attempt + 1}/{retries - 1}..."):
+                    time.sleep(wait)
+            else:
+                raise
+        except Exception:
+            raise
+
+def trim_text(text, max_chars=6000):
+    return text[:max_chars] + "\n\n[...document trimmed to fit token budget...]" if len(text) > max_chars else text
+
 def make_action_bar(audio_b64: str, audio_id: str, message_text: str) -> str:
-    """
-    Returns a self-contained HTML string to be rendered via components.v1.html.
-    All JS runs inside an iframe — Streamlit cannot strip it.
-    """
+    """Returns a self-contained HTML string to be rendered via components.v1.html."""
     audio_tag = ""
     listen_btn = "<span style='color:#555;font-size:0.8rem;'>No audio</span>"
 
@@ -39,12 +78,7 @@ def make_action_bar(audio_b64: str, audio_id: str, message_text: str) -> str:
         </button>"""
 
     # Escape the message for safe embedding in a JS template literal
-    js_safe_text = (
-        message_text
-        .replace("\\", "\\\\")
-        .replace("`", "\\`")
-        .replace("$", "\\$")
-    )
+    js_safe_text = message_text.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
 
     return f"""<!DOCTYPE html>
 <html>
@@ -124,36 +158,60 @@ def make_action_bar(audio_b64: str, audio_id: str, message_text: str) -> str:
         ">
       👎
     </button>
-
-    <!-- Retry (signals parent via postMessage) -->
-    <button class="action-btn" title="Retry"
-        onclick="window.parent.postMessage('retry', '*');">
-      🔄
-    </button>
   </div>
 
   <script>
     // Auto-play on load if audio exists
     var aud = document.getElementById('{audio_id}');
     if (aud) {{
-      // Small delay — iframe needs to be fully painted first
       setTimeout(() => aud.play().catch(() => {{}}), 400);
     }}
   </script>
 </body>
 </html>"""
 
+# ── 5. Ingestion & The Hook ───────────────────────────────────────────────────
+st.title("👨‍🏫 AI Classroom Simulator")
 
-# ── Section 6: Draw the Chat UI ──────────────────────────────────────────────
+if uploaded_file is not None and st.session_state.pdf_text == "":
+    with st.spinner("Scanning course materials..."):
+        pdf_reader = PyPDF2.PdfReader(uploaded_file)
+        text = ""
+        start_page = 15
+        end_page = min(19, len(pdf_reader.pages))
+        for page_num in range(start_page, end_page):
+            text += pdf_reader.pages[page_num].extract_text()
+
+        st.session_state.pdf_text = trim_text(text)
+
+        if "Seminar" in mode:
+            persona = "You are a conversational tutor. Keep explanations clean and text-based."
+        else:
+            persona = "You are a rigorous math professor at a chalkboard. Find math formulas and break them down step-by-step."
+
+        st.session_state.chat = model.start_chat(history=[])
+        initial_prompt = f"{persona}\n\nHere is the course material. Keep this in mind:\n{st.session_state.pdf_text}\n\nWelcome the student to the course and ask what they want to review."
+
+        try:
+            response = safe_generate_chat(st.session_state.chat, initial_prompt)
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
+        except ResourceExhausted:
+            st.session_state.pdf_text = ""
+            st.error("⚠️ Rate-limited on start. Wait a minute and re-upload.")
+            st.stop()
+        except Exception as e:
+            st.session_state.pdf_text = ""
+            st.error(f"Failed to start class: {e}")
+            st.stop()
+
+# ── 6. Draw the Chat UI ───────────────────────────────────────────────────────
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
         if msg["role"] == "assistant" and msg.get("audio_html"):
-            # height=54 is just enough for the one-row button bar
             components.html(msg["audio_html"], height=54, scrolling=False)
 
-
-# ── Section 7: Student Interaction ───────────────────────────────────────────
+# ── 7. Student Interaction ────────────────────────────────────────────────────
 student_input = None
 
 col1, col2 = st.columns([2, 8])
@@ -165,9 +223,8 @@ if typed_input := st.chat_input("Or type your specific question..."):
     student_input = typed_input
 
 if student_input:
-
     if "chat" not in st.session_state:
-        st.error("⚠️ Please upload your Course PDF first!")
+        st.error("⚠️ Please upload your Course PDF first so the professor can review the materials!")
         st.stop()
 
     st.session_state.messages.append({"role": "user", "content": student_input})
@@ -216,11 +273,11 @@ if student_input:
         audio_id  = f"audio_{len(st.session_state.messages)}"
         action_bar = make_action_bar(audio_b64, audio_id, ui_text)
 
-        # components.html renders in a sandboxed iframe — JS works fully
+        # components.html renders in a sandboxed iframe
         components.html(action_bar, height=54, scrolling=False)
 
         st.session_state.messages.append({
             "role": "assistant",
             "content": ui_text,
-            "audio_html": action_bar,   # stored so section 6 can redraw it
+            "audio_html": action_bar,
         })
