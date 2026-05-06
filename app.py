@@ -255,11 +255,12 @@ if student_input:
                     ui_text = "I was just thinking about that. Could you clarify which part you'd like to break down?"
                 
                 # THE CHALKBOARD AUDIO FILTER
-                # 1. Replace big block math with a natural spoken cue
                 voice_text = re.sub(r'\$\$.*?\$\$', ' [refer to the formula on the board] ', ui_text, flags=re.DOTALL)
-                # 2. Strip inline dollar signs so $x$ just reads as "x"
                 voice_text = voice_text.replace('$', '')
-                # 3. Strip standard markdown
+                
+                # THE FIX: Silently delete all backslashes so \times becomes "times"
+                voice_text = voice_text.replace('\\', '') 
+                
                 voice_text = re.sub(r'[*#_\-`]+', '', voice_text)
                 
             except ResourceExhausted:
