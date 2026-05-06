@@ -188,11 +188,13 @@ if selected_voice != st.session_state.current_voice:
     st.session_state.current_voice = selected_voice
     
     if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "assistant":
-        with st.spinner("🎙️ Switching teacher's voice..."):
+       with st.spinner("🎙️ Switching teacher's voice..."):
             last_msg = st.session_state.messages[-1]
             
-            # Clean the text for the new voice actor
-            voice_text = re.sub(r'[*#_\-`]+', '', last_msg["content"])
+            # THE CHALKBOARD AUDIO FILTER (For Voice Switching)
+            voice_text = re.sub(r'\$\$.*?\$\$', ' [refer to the formula on the board] ', last_msg["content"], flags=re.DOTALL)
+            voice_text = voice_text.replace('$', '')
+            voice_text = re.sub(r'[*#_\-`]+', '', voice_text)
             
             # Record the new MP3
             async def regenerate_speech(text, file_path, voice_id):
@@ -248,15 +250,18 @@ if student_input:
             try:
                 response = safe_generate_chat(st.session_state.chat, chat_message)
                 raw_text = response.text
-                
-                # BUG FIX: Strip thoughts even if the AI forgets the closing tag!
                 ui_text = re.sub(r'<thought>.*?(?:</thought>|$)', '', raw_text, flags=re.DOTALL).strip()
-                
                 if not ui_text: 
-                    # Fallback if the AI accidentally *only* outputs a thought
-                    ui_text = "I was just thinking about that. Could you clarify which specific part of the math you'd like to break down?"
-                    
-                voice_text = re.sub(r'[*#_\-`]+', '', ui_text)
+                    ui_text = "I was just thinking about that. Could you clarify which part you'd like to break down?"
+                
+                # THE CHALKBOARD AUDIO FILTER
+                # 1. Replace big block math with a natural spoken cue
+                voice_text = re.sub(r'\$\$.*?\$\$', ' [refer to the formula on the board] ', ui_text, flags=re.DOTALL)
+                # 2. Strip inline dollar signs so $x$ just reads as "x"
+                voice_text = voice_text.replace('$', '')
+                # 3. Strip standard markdown
+                voice_text = re.sub(r'[*#_\-`]+', '', voice_text)
+                
             except ResourceExhausted:
                 st.error("⚠️ The professor ran out of daily free tokens!")
                 st.stop()
