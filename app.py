@@ -29,7 +29,16 @@ with st.sidebar:
         ("Seminar Mode (Text & Concepts)", "Chalkboard Mode (Heavy Math)")
     )
     
-    st.markdown("---")
+   st.markdown("---")
+    
+    # The Memory Wipe Button
+    if st.button("🗑️ End Class (Clear Memory)"):
+        st.session_state.messages = []
+        st.session_state.pdf_text = ""
+        if "chat" in st.session_state:
+            del st.session_state.chat
+        st.rerun()
+        
     voice_option = st.selectbox(
         "🗣️ Select Teacher Voice:",
         ("British Professor (Ryan)", "American Tutor (Aria)", "Nigerian Lecturer (Abeo)")
