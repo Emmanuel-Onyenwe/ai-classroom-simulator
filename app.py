@@ -177,6 +177,40 @@ if uploaded_file is not None and st.session_state.pdf_text == "":
             st.session_state.pdf_text = ""
             st.error(f"Failed to generate the opening lecture: {e}")
             st.stop()
+
+# ── 5.5 The Immediate Voice Switch Fix ────────────────────────────────────────
+# Keep track of the current voice in memory
+if "current_voice" not in st.session_state:
+    st.session_state.current_voice = selected_voice
+
+# If the dropdown changes, intercept it and re-record the very last message!
+if selected_voice != st.session_state.current_voice:
+    st.session_state.current_voice = selected_voice
+    
+    if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "assistant":
+        with st.spinner("🎙️ Switching teacher's voice..."):
+            last_msg = st.session_state.messages[-1]
+            
+            # Clean the text for the new voice actor
+            voice_text = re.sub(r'[*#_\-`]+', '', last_msg["content"])
+            
+            # Record the new MP3
+            async def regenerate_speech(text, file_path, voice_id):
+                communicate = edge_tts.Communicate(text, voice_id, rate="-10%")
+                await communicate.save(file_path)
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+                asyncio.run(regenerate_speech(voice_text, fp.name, selected_voice))
+                with open(fp.name, "rb") as f:
+                    new_audio_b64 = base64.b64encode(f.read()).decode()
+            
+            # Rebuild the action bar and overwrite the old one in memory
+            audio_id = f"audio_{len(st.session_state.messages) - 1}"
+            new_action_bar = make_action_bar(new_audio_b64, audio_id, last_msg["content"])
+            st.session_state.messages[-1]["audio_html"] = new_action_bar
+            
+        # Instantly refresh the screen so the new play button is loaded
+        st.rerun()
             
 # 6. Draw the Chat UI (✅ UPDATED TO USE COMPONENTS)
 for msg in st.session_state.messages:
