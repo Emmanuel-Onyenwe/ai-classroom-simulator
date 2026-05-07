@@ -325,7 +325,7 @@ if student_input:
             except Exception as e:
                 pass # Silently skip audio if it fails
         
-        # --- PART 3: DRAW TO SCREEN (WITH INTERACTIVE GRAPHING) ---
+# --- PART 3: DRAW TO SCREEN (WITH INTERACTIVE GRAPHING) ---
         
         # 1. Check if the AI tried to draw a graph
         plot_formula = None
@@ -359,7 +359,7 @@ if student_input:
             "role": "assistant", 
             "content": ui_text,
             "audio_html": action_bar_html,
-            "plot_formula": plot_formula  # <--- THE MAGIC KEY STAYS AT THE BOTTOM
+            "plot_formula": plot_formula 
         })
         
         # 6. Auto-Scroll down
@@ -374,51 +374,6 @@ if student_input:
             </script>
             """, height=0
         )
-        
-        # 2. Write the professor's text to the screen
-        st.write(ui_text)
-        
-        # 3. Draw the interactive graph if a formula was found!
-        if plot_formula:
-            try:
-                # Generate 400 data points from -10 to 10
-                x = np.linspace(-10, 10, 400)
-                # Safely evaluate the AI's formula
-                safe_dict = {"x": x, "np": np}
-                y = eval(plot_formula, {"__builtins__": None}, safe_dict)
-                
-                # Plot it using Streamlit's native interactive chart
-                df = pd.DataFrame({"x": x, "y": y}).set_index("x")
-                st.line_chart(df, use_container_width=True)
-            except Exception as e:
-                st.warning(f"⚠️ The professor's chalk broke while trying to graph: {plot_formula}")
-
-        # 4. Draw the action bar and audio
-        audio_id = f"audio_{len(st.session_state.messages)}"
-        action_bar_html = make_action_bar(audio_b64, audio_id, ui_text)
-        components.html(action_bar_html, height=54, scrolling=False)
-            
-       # 5. Save to memory
-        st.session_state.messages.append({
-            "role": "assistant", 
-            "content": ui_text,
-            "audio_html": action_bar_html,
-            "plot_formula": plot_formula  # 👈 THE NEW MAGIC KEY
-        })
-        
-        # 6. Auto-Scroll down
-        components.html(
-            """
-            <script>
-                const doc = window.parent.document;
-                const messages = doc.querySelectorAll('.stChatMessage');
-                if (messages.length > 0) {
-                    messages[messages.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }
-            </script>
-            """, height=0
-        )
-
 # ── 8. Export Notes (Moved to bottom so it gets the latest messages!) ────────
 with st.sidebar:
     st.markdown("---")
