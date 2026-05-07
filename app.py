@@ -297,10 +297,23 @@ if selected_voice != st.session_state.current_voice:
         # Instantly refresh the screen so the new play button is loaded
             st.rerun()
             
-# 6. Draw the Chat UI (✅ UPDATED TO USE COMPONENTS)
+# 6. Draw the Chat UI (✅ UPDATED TO REDRAW GRAPHS)
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
+        
+        # Redraw the graph if this specific message had one!
+        if msg.get("plot_formula"):
+            try:
+                x = np.linspace(-10, 10, 400)
+                safe_dict = {"x": x, "np": np}
+                y = eval(msg["plot_formula"], {"__builtins__": None}, safe_dict)
+                df = pd.DataFrame({"x": x, "y": y}).set_index("x")
+                st.line_chart(df, use_container_width=True)
+            except Exception:
+                pass # Skip silently if the old formula was broken
+                
+        # Redraw the action buttons and audio
         if msg["role"] == "assistant" and msg.get("audio_html"):
             components.html(msg["audio_html"], height=54, scrolling=False)
 
@@ -409,11 +422,12 @@ if student_input:
         action_bar_html = make_action_bar(audio_b64, audio_id, ui_text)
         components.html(action_bar_html, height=54, scrolling=False)
             
-        # 5. Save to memory
+       # 5. Save to memory
         st.session_state.messages.append({
             "role": "assistant", 
             "content": ui_text,
-            "audio_html": action_bar_html
+            "audio_html": action_bar_html,
+            "plot_formula": plot_formula  # 👈 THE NEW MAGIC KEY
         })
         
         # 6. Auto-Scroll down
