@@ -431,38 +431,49 @@ with st.sidebar:
                 # IF THIS MESSAGE HAS A GRAPH, DRAW IT IN HTML!
                 if msg.get("plot_formula"):
                     try:
-                        # Recalculate the coordinates
+                        # 1. Recalculate the coordinates
                         x = np.linspace(-10, 10, 100)
                         safe_dict = {"x": x, "np": np}
                         y = eval(msg["plot_formula"], {"__builtins__": None}, safe_dict)
                         
-                        # Convert to lists for JavaScript
-                        x_list = list(x)
-                        y_list = list(y)
+                        # 2. THE DATA FIX: Convert numpy arrays to pure Python lists and round them 
+                        # so the browser doesn't choke on giant 16-decimal floating-point numbers!
+                        x_list = [round(float(val), 2) for val in x]
+                        y_list = [round(float(val), 2) for val in y]
                         
-                        # Inject an HTML Canvas and the Chart.js script
+                        # 3. Inject the HTML Canvas and the Chart.js script
                         html_content += f'''
-        <div class="chart-container">
+        <div class="chart-container" style="position: relative; height: 350px; width: 100%;">
             <canvas id="chart_{i}"></canvas>
         </div>
         <script>
-            new Chart(document.getElementById('chart_{i}'), {{
-                type: 'line',
-                data: {{
-                    labels: {x_list},
-                    datasets: [{{
-                        label: 'y = {msg["plot_formula"]}',
-                        data: {y_list},
-                        borderColor: '#10a37f',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        tension: 0.4
-                    }}]
-                }},
-                options: {{ plugins: {{ legend: {{ display: true }} }} }}
+            // THE TIMING FIX: Tell the browser to wait until the page is fully drawn to execute the chart!
+            window.addEventListener('DOMContentLoaded', function() {{
+                const ctx = document.getElementById('chart_{i}').getContext('2d');
+                new Chart(ctx, {{
+                    type: 'line',
+                    data: {{
+                        labels: {x_list},
+                        datasets: [{{
+                            label: 'y = {msg["plot_formula"]}',
+                            data: {y_list},
+                            borderColor: '#10a37f',
+                            backgroundColor: 'rgba(16, 163, 127, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: true,
+                            tension: 0.4
+                        }}]
+                    }},
+                    options: {{ 
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {{ legend: {{ display: true }} }} 
+                    }}
+                }});
             }});
         </script>'''
-                    except Exception:
+                    except Exception as e:
                         pass # Silently skip if graph math fails
                 
                 # Close the message div
