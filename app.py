@@ -44,7 +44,7 @@ with st.sidebar:
     selected_voice = voice_mapping[voice_option]
 
     st.markdown("---")
-    st.subheader("📥 Export Notes")
+    
     
     # Check if there are messages to download
     if "messages" in st.session_state and len(st.session_state.messages) > 0:
