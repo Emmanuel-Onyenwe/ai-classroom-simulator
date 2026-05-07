@@ -400,6 +400,14 @@ if student_input:
             plot_formula = plot_match.group(1).strip()
             # Remove the raw <plot> tag from the text so the user doesn't see it
             ui_text = re.sub(r'<plot>.*?</plot>', '', ui_text, flags=re.DOTALL).strip()
+
+        # Save to memory (DO NOT MISS THE PLOT FORMULA!)
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": ui_text,
+            "audio_html": action_bar_html,
+            "plot_formula": plot_formula  # <--- THIS IS WHAT KEEPS THE GRAPH ALIVE
+        })
         
         # 2. Write the professor's text to the screen
         st.write(ui_text)
@@ -444,3 +452,49 @@ if student_input:
             </script>
             """, height=0
         )
+
+# ── 8. Export Notes (Moved to bottom so it gets the latest messages!) ────────
+with st.sidebar:
+    st.markdown("---")
+    st.subheader("📥 Export Notes")
+    
+    if "messages" in st.session_state and len(st.session_state.messages) > 0:
+        export_format = st.selectbox("Select Export Format:", ["Web Page (.html) - Best for Math", "Markdown (.md)", "Plain Text (.txt)"])
+        
+        raw_text_content = "# 👨‍🏫 AI Classroom Lecture Notes\n\n"
+        for msg in st.session_state.messages:
+            role = "🎓 **Student:**" if msg["role"] == "user" else "👨‍🏫 **Professor:**"
+            safe_text = msg.get('content', '')
+            raw_text_content += f"{role}\n{safe_text}\n\n---\n\n"
+            
+        if "html" in export_format:
+            html_content = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"><title>MTH 105 Lecture Notes</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #333; line-height: 1.6; }
+        h2 { border-bottom: 2px solid #eaeaea; padding-bottom: 10px; }
+        .message { margin-bottom: 24px; padding: 16px; border-radius: 8px; }
+        .user { background-color: #f0f7ff; border-left: 4px solid #0066cc; }
+        .assistant { background-color: #f9f9f9; border-left: 4px solid #10a37f; }
+        .role { font-weight: bold; font-size: 0.85em; text-transform: uppercase; margin-bottom: 8px; color: #555; }
+        .content { white-space: pre-wrap; }
+    </style>
+</head>
+<body><h2>👨‍🏫 AI Classroom Lecture Notes</h2>"""
+            for msg in st.session_state.messages:
+                css_class = "user" if msg["role"] == "user" else "assistant"
+                role_name = "🎓 Student" if msg["role"] == "user" else "👨‍🏫 Professor"
+                safe_text = msg.get('content', '').replace('<', '&lt;').replace('>', '&gt;')
+                html_content += f'\n<div class="message {css_class}"><div class="role">{role_name}</div><div class="content">{safe_text}</div></div>'
+            html_content += "\n</body></html>"
+            st.download_button(label="⬇️ Download HTML", data=html_content, file_name="Lecture_Notes.html", mime="text/html")
+            st.caption("💡 *Need a PDF? Open this HTML file in your browser and press Ctrl+P to 'Save as PDF'.*")
+        elif "md" in export_format:
+            st.download_button(label="⬇️ Download Markdown", data=raw_text_content, file_name="Lecture_Notes.md", mime="text/markdown")
+        elif "txt" in export_format:
+            clean_txt = raw_text_content.replace('**', '').replace('#', '').strip()
+            st.download_button(label="⬇️ Download Text", data=clean_txt, file_name="Lecture_Notes.txt", mime="text/plain")
