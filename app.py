@@ -53,59 +53,6 @@ with st.sidebar:
             del st.session_state.chat
         st.rerun()
 
-# 1.5 Custom UI/UX: The Chalkboard Aesthetic
-st.markdown("""
-<style>
-    /* 1. Main Background: Deep Slate/Green Chalkboard */
-    .stApp {
-        background-color: #1a2520; 
-        background-image: radial-gradient(circle, #25352d 0%, #1a2520 100%);
-        color: #fdfdfd;
-    }
-    
-    /* 2. The Sidebar: Darker contrast */
-    [data-testid="stSidebar"] {
-        background-color: #111815 !important;
-        border-right: 1px solid #2a3b32;
-    }
-
-    /* 3. Professor's Chat Bubbles */
-    [data-testid="stChatMessage"] {
-        background-color: rgba(255, 255, 255, 0.03);
-        border-radius: 12px;
-        border-left: 4px solid #10a37f;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-
-    /* 4. Student's Chat Bubbles (Targeting alternate messages) */
-    [data-testid="stChatMessage"]:nth-child(even) {
-        border-left: 4px solid #0066cc;
-        background-color: rgba(0, 102, 204, 0.05);
-    }
-
-    /* 5. The Chat Input Box */
-    .stChatInputContainer {
-        border: 1px solid #4a5c53 !important;
-        border-radius: 12px !important;
-        background-color: rgba(26, 37, 32, 0.8) !important;
-        backdrop-filter: blur(5px);
-    }
-    
-    /* 6. Typography: Make headers feel more academic */
-    h1, h2, h3 {
-        color: #e2e8e5 !important;
-        font-family: 'Georgia', serif; 
-    }
-    
-    /* Make the top padding a bit tighter so the board takes up more screen */
-    .block-container {
-        padding-top: 2rem !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 # 3. Security Check
 if not api_key:
     st.warning("Please enter your Gemini API Key in the sidebar to enter the classroom.")
