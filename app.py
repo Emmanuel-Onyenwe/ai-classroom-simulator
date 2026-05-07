@@ -45,72 +45,6 @@ with st.sidebar:
 
     st.markdown("---")
     
-    
-    # Check if there are messages to download
-    if "messages" in st.session_state and len(st.session_state.messages) > 0:
-        
-        # The Dropdown Menu
-        export_format = st.selectbox("Select Export Format:", [
-            "Web Page (.html) - Best for Math", 
-            "Markdown (.md)", 
-            "Plain Text (.txt)"
-        ])
-        
-        # Pre-build the raw text for MD and TXT options
-        raw_text_content = "# 👨‍🏫 AI Classroom Lecture Notes\n\n"
-        for msg in st.session_state.messages:
-            role = "🎓 **Student:**" if msg["role"] == "user" else "👨‍🏫 **Professor:**"
-            # Fallback to an empty string just in case content is None
-            safe_text = msg.get('content', '') 
-            raw_text_content += f"{role}\n{safe_text}\n\n---\n\n"
-            
-        # 1. HTML Output
-        if "html" in export_format:
-            html_content = """<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>MTH 105 Lecture Notes</title>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #333; line-height: 1.6; }
-        h2 { border-bottom: 2px solid #eaeaea; padding-bottom: 10px; }
-        .message { margin-bottom: 24px; padding: 16px; border-radius: 8px; }
-        .user { background-color: #f0f7ff; border-left: 4px solid #0066cc; }
-        .assistant { background-color: #f9f9f9; border-left: 4px solid #10a37f; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .role { font-weight: bold; font-size: 0.85em; text-transform: uppercase; margin-bottom: 8px; color: #555; }
-        .content { white-space: pre-wrap; }
-    </style>
-</head>
-<body>
-    <h2>👨‍🏫 AI Classroom Lecture Notes</h2>
-"""
-            for msg in st.session_state.messages:
-                css_class = "user" if msg["role"] == "user" else "assistant"
-                role_name = "🎓 Student" if msg["role"] == "user" else "👨‍🏫 Professor"
-                safe_text = msg['content'].replace('<', '&lt;').replace('>', '&gt;')
-                html_content += f'\n    <div class="message {css_class}">\n        <div class="role">{role_name}</div>\n        <div class="content">{safe_text}</div>\n    </div>'
-            html_content += "\n</body>\n</html>"
-            
-            st.download_button(label="⬇️ Download HTML", data=html_content, file_name="Lecture_Notes.html", mime="text/html")
-            st.caption("💡 *Need a PDF? Open this HTML file in your browser and press Ctrl+P (or Cmd+P) to 'Save as PDF'.*")
-            
-        # 2. Markdown Output
-        elif "md" in export_format:
-            st.download_button(label="⬇️ Download Markdown", data=raw_text_content, file_name="Lecture_Notes.md", mime="text/markdown")
-            
-        # 3. Plain Text Output
-        elif "txt" in export_format:
-            # Strip markdown formatting for pure, clean text
-            clean_txt = raw_text_content.replace('**', '').replace('#', '').strip()
-            st.download_button(label="⬇️ Download Text", data=clean_txt, file_name="Lecture_Notes.txt", mime="text/plain")
-
-    else:
-        st.info("Start the class to generate notes!")
-
-    st.markdown("---")
-    
     # The Memory Wipe Button
     if st.button("🗑️ End Class (Clear Memory)"):
         st.session_state.messages = []
@@ -118,7 +52,7 @@ with st.sidebar:
         if "chat" in st.session_state:
             del st.session_state.chat
         st.rerun()
-
+        
 # 3. Security Check
 if not api_key:
     st.warning("Please enter your Gemini API Key in the sidebar to enter the classroom.")
@@ -490,48 +424,84 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("📥 Export Notes")
     
+    # Check if there are messages to download
     if "messages" in st.session_state and len(st.session_state.messages) > 0:
-        # Add a unique 'key' so Streamlit never confuses it with another widget!
+        
+        # UNIQUE KEY ADDED HERE
         export_format = st.selectbox(
             "Select Export Format:", 
             ["Web Page (.html) - Best for Math", "Markdown (.md)", "Plain Text (.txt)"],
-            key="export_dropdown_menu"
+            key="export_dropdown_menu_bottom" 
         )
         
+        # Pre-build the raw text for MD and TXT options
         raw_text_content = "# 👨‍🏫 AI Classroom Lecture Notes\n\n"
         for msg in st.session_state.messages:
             role = "🎓 **Student:**" if msg["role"] == "user" else "👨‍🏫 **Professor:**"
-            safe_text = msg.get('content', '')
+            safe_text = msg.get('content', '') 
             raw_text_content += f"{role}\n{safe_text}\n\n---\n\n"
             
+        # 1. HTML Output
         if "html" in export_format:
             html_content = """<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8"><title>MTH 105 Lecture Notes</title>
+    <meta charset="utf-8">
+    <title>MTH 105 Lecture Notes</title>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #333; line-height: 1.6; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #333; line-height: 1.6; }
         h2 { border-bottom: 2px solid #eaeaea; padding-bottom: 10px; }
         .message { margin-bottom: 24px; padding: 16px; border-radius: 8px; }
         .user { background-color: #f0f7ff; border-left: 4px solid #0066cc; }
-        .assistant { background-color: #f9f9f9; border-left: 4px solid #10a37f; }
+        .assistant { background-color: #f9f9f9; border-left: 4px solid #10a37f; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .role { font-weight: bold; font-size: 0.85em; text-transform: uppercase; margin-bottom: 8px; color: #555; }
         .content { white-space: pre-wrap; }
     </style>
 </head>
-<body><h2>👨‍🏫 AI Classroom Lecture Notes</h2>"""
+<body>
+    <h2>👨‍🏫 AI Classroom Lecture Notes</h2>
+"""
             for msg in st.session_state.messages:
                 css_class = "user" if msg["role"] == "user" else "assistant"
                 role_name = "🎓 Student" if msg["role"] == "user" else "👨‍🏫 Professor"
                 safe_text = msg.get('content', '').replace('<', '&lt;').replace('>', '&gt;')
-                html_content += f'\n<div class="message {css_class}"><div class="role">{role_name}</div><div class="content">{safe_text}</div></div>'
-            html_content += "\n</body></html>"
-            st.download_button(label="⬇️ Download HTML", data=html_content, file_name="Lecture_Notes.html", mime="text/html")
-            st.caption("💡 *Need a PDF? Open this HTML file in your browser and press Ctrl+P to 'Save as PDF'.*")
+                html_content += f'\n    <div class="message {css_class}">\n        <div class="role">{role_name}</div>\n        <div class="content">{safe_text}</div>\n    </div>'
+            html_content += "\n</body>\n</html>"
+            
+            # UNIQUE KEY ADDED HERE
+            st.download_button(
+                label="⬇️ Download HTML", 
+                data=html_content, 
+                file_name="Lecture_Notes.html", 
+                mime="text/html",
+                key="dl_btn_html"
+            )
+            st.caption("💡 *Need a PDF? Open this HTML file in your browser and press Ctrl+P (or Cmd+P) to 'Save as PDF'.*")
+            
+        # 2. Markdown Output
         elif "md" in export_format:
-            st.download_button(label="⬇️ Download Markdown", data=raw_text_content, file_name="Lecture_Notes.md", mime="text/markdown")
+            # UNIQUE KEY ADDED HERE
+            st.download_button(
+                label="⬇️ Download Markdown", 
+                data=raw_text_content, 
+                file_name="Lecture_Notes.md", 
+                mime="text/markdown",
+                key="dl_btn_md"
+            )
+            
+        # 3. Plain Text Output
         elif "txt" in export_format:
             clean_txt = raw_text_content.replace('**', '').replace('#', '').strip()
-            st.download_button(label="⬇️ Download Text", data=clean_txt, file_name="Lecture_Notes.txt", mime="text/plain")
+            # UNIQUE KEY ADDED HERE
+            st.download_button(
+                label="⬇️ Download Text", 
+                data=clean_txt, 
+                file_name="Lecture_Notes.txt", 
+                mime="text/plain",
+                key="dl_btn_txt"
+            )
+
+    else:
+        st.info("Start the class to generate notes!")
