@@ -405,6 +405,7 @@ with st.sidebar:
     <title>MTH 105 Lecture Notes</title>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #333; line-height: 1.6; }
         h2 { border-bottom: 2px solid #eaeaea; padding-bottom: 10px; }
@@ -413,16 +414,60 @@ with st.sidebar:
         .assistant { background-color: #f9f9f9; border-left: 4px solid #10a37f; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .role { font-weight: bold; font-size: 0.85em; text-transform: uppercase; margin-bottom: 8px; color: #555; }
         .content { white-space: pre-wrap; }
+        .chart-container { background: white; padding: 10px; border-radius: 8px; margin-top: 15px; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
     <h2>👨‍🏫 AI Classroom Lecture Notes</h2>
 """
-            for msg in st.session_state.messages:
+            # We use enumerate to give each graph a unique ID (chart_0, chart_1, etc.)
+            for i, msg in enumerate(st.session_state.messages):
                 css_class = "user" if msg["role"] == "user" else "assistant"
                 role_name = "🎓 Student" if msg["role"] == "user" else "👨‍🏫 Professor"
                 safe_text = msg.get('content', '').replace('<', '&lt;').replace('>', '&gt;')
-                html_content += f'\n    <div class="message {css_class}">\n        <div class="role">{role_name}</div>\n        <div class="content">{safe_text}</div>\n    </div>'
+                
+                html_content += f'\n    <div class="message {css_class}">\n        <div class="role">{role_name}</div>\n        <div class="content">{safe_text}</div>'
+                
+                # IF THIS MESSAGE HAS A GRAPH, DRAW IT IN HTML!
+                if msg.get("plot_formula"):
+                    try:
+                        # Recalculate the coordinates
+                        x = np.linspace(-10, 10, 100)
+                        safe_dict = {"x": x, "np": np}
+                        y = eval(msg["plot_formula"], {"__builtins__": None}, safe_dict)
+                        
+                        # Convert to lists for JavaScript
+                        x_list = list(x)
+                        y_list = list(y)
+                        
+                        # Inject an HTML Canvas and the Chart.js script
+                        html_content += f'''
+        <div class="chart-container">
+            <canvas id="chart_{i}"></canvas>
+        </div>
+        <script>
+            new Chart(document.getElementById('chart_{i}'), {{
+                type: 'line',
+                data: {{
+                    labels: {x_list},
+                    datasets: [{{
+                        label: 'y = {msg["plot_formula"]}',
+                        data: {y_list},
+                        borderColor: '#10a37f',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.4
+                    }}]
+                }},
+                options: {{ plugins: {{ legend: {{ display: true }} }} }}
+            }});
+        </script>'''
+                    except Exception:
+                        pass # Silently skip if graph math fails
+                
+                # Close the message div
+                html_content += '\n    </div>'
+                
             html_content += "\n</body>\n</html>"
             
             # UNIQUE KEY ADDED HERE
@@ -434,17 +479,6 @@ with st.sidebar:
                 key="dl_btn_html"
             )
             st.caption("💡 *Need a PDF? Open this HTML file in your browser and press Ctrl+P (or Cmd+P) to 'Save as PDF'.*")
-            
-        # 2. Markdown Output
-        elif "md" in export_format:
-            # UNIQUE KEY ADDED HERE
-            st.download_button(
-                label="⬇️ Download Markdown", 
-                data=raw_text_content, 
-                file_name="Lecture_Notes.md", 
-                mime="text/markdown",
-                key="dl_btn_md"
-            )
             
         # 3. Plain Text Output
         elif "txt" in export_format:
