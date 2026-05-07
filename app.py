@@ -60,7 +60,9 @@ with st.sidebar:
         raw_text_content = "# 👨‍🏫 AI Classroom Lecture Notes\n\n"
         for msg in st.session_state.messages:
             role = "🎓 **Student:**" if msg["role"] == "user" else "👨‍🏫 **Professor:**"
-            raw_text_content += f"{role}\n{msg['content']}\n\n---\n\n"
+            # Fallback to an empty string just in case content is None
+            safe_text = msg.get('content', '') 
+            raw_text_content += f"{role}\n{safe_text}\n\n---\n\n"
             
         # 1. HTML Output
         if "html" in export_format:
