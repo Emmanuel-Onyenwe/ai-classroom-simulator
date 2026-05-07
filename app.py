@@ -400,14 +400,46 @@ if student_input:
             plot_formula = plot_match.group(1).strip()
             # Remove the raw <plot> tag from the text so the user doesn't see it
             ui_text = re.sub(r'<plot>.*?</plot>', '', ui_text, flags=re.DOTALL).strip()
+        
+        # 2. Write the professor's text to the screen
+        st.write(ui_text)
+        
+        # 3. Draw the interactive graph if a formula was found!
+        if plot_formula:
+            try:
+                x = np.linspace(-10, 10, 400)
+                safe_dict = {"x": x, "np": np}
+                y = eval(plot_formula, {"__builtins__": None}, safe_dict)
+                df = pd.DataFrame({"x": x, "y": y}).set_index("x")
+                st.line_chart(df, use_container_width=True)
+            except Exception as e:
+                st.warning(f"⚠️ The professor's chalk broke while trying to graph: {plot_formula}")
 
-        # Save to memory (DO NOT MISS THE PLOT FORMULA!)
+        # 4. Draw the action bar and audio
+        audio_id = f"audio_{len(st.session_state.messages)}"
+        action_bar_html = make_action_bar(audio_b64, audio_id, ui_text)
+        components.html(action_bar_html, height=54, scrolling=False)
+            
+        # 5. Save to memory (DO NOT MISS THE PLOT FORMULA!)
         st.session_state.messages.append({
             "role": "assistant", 
             "content": ui_text,
             "audio_html": action_bar_html,
-            "plot_formula": plot_formula  # <--- THIS IS WHAT KEEPS THE GRAPH ALIVE
+            "plot_formula": plot_formula  # <--- THE MAGIC KEY STAYS AT THE BOTTOM
         })
+        
+        # 6. Auto-Scroll down
+        components.html(
+            """
+            <script>
+                const doc = window.parent.document;
+                const messages = doc.querySelectorAll('.stChatMessage');
+                if (messages.length > 0) {
+                    messages[messages.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            </script>
+            """, height=0
+        )
         
         # 2. Write the professor's text to the screen
         st.write(ui_text)
