@@ -491,7 +491,12 @@ with st.sidebar:
     st.subheader("📥 Export Notes")
     
     if "messages" in st.session_state and len(st.session_state.messages) > 0:
-        export_format = st.selectbox("Select Export Format:", ["Web Page (.html) - Best for Math", "Markdown (.md)", "Plain Text (.txt)"])
+        # Add a unique 'key' so Streamlit never confuses it with another widget!
+        export_format = st.selectbox(
+            "Select Export Format:", 
+            ["Web Page (.html) - Best for Math", "Markdown (.md)", "Plain Text (.txt)"],
+            key="export_dropdown_menu"
+        )
         
         raw_text_content = "# 👨‍🏫 AI Classroom Lecture Notes\n\n"
         for msg in st.session_state.messages:
