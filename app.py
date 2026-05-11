@@ -327,9 +327,15 @@ for msg in st.session_state.messages:
                 )
             components.html(html_to_render, height=54, scrolling=False)
                 
-        # Redraw the action buttons and audio
+        # Redraw the action buttons and audio (only the last message autoplays)
         if msg["role"] == "assistant" and msg.get("audio_html"):
-            components.html(msg["audio_html"], height=54, scrolling=False)
+            html_to_render = msg["audio_html"]
+            if msg is not st.session_state.messages[-1]:
+                html_to_render = html_to_render.replace(
+                    "setTimeout(function () { aud.play().catch(function () {}); }, 400);",
+                    "/* autoplay suppressed for old message */"
+                )
+            components.html(html_to_render, height=54, scrolling=False)
 
 # 7. Student Interaction
 student_input = None
@@ -348,13 +354,6 @@ if student_input:
     if "chat" not in st.session_state:
         st.error("⚠️ Please upload your Course PDF first so the professor can review the materials!")
         st.stop()
-
-    # ✅ THE "CUT ITSELF" FIX: Mute the previous audio instantly
-    if len(st.session_state.messages) > 0:
-        last_msg = st.session_state.messages[-1]
-        if last_msg["role"] == "assistant" and "audio_html" in last_msg:
-            # Replacing 'aud.play()' forces Streamlit to redraw the player silently
-            last_msg["audio_html"] = last_msg["audio_html"].replace("aud.play()", "console.log('muted')")
 
     st.session_state.messages.append({"role": "user", "content": student_input})
     with st.chat_message("user"):
@@ -434,18 +433,19 @@ if student_input:
             except Exception as e:
                 st.warning(f"⚠️ The professor's chalk broke while trying to graph: {plot_formula}")
 
-        # 4. Draw the action bar and audio
+        # 4. Build the action bar HTML but DON'T draw it live here.
+        # The chat loop will draw it on the rerun — preventing duplicates.
         audio_id = f"audio_{len(st.session_state.messages)}"
         action_bar_html = make_action_bar(audio_b64, audio_id, ui_text)
-        components.html(action_bar_html, height=54, scrolling=False)
-            
-        # 5. Save to memory (DO NOT MISS THE PLOT FORMULA!)
+
+        # 5. Save to memory, then rerun so the chat loop renders everything once.
         st.session_state.messages.append({
-            "role": "assistant", 
+            "role": "assistant",
             "content": ui_text,
             "audio_html": action_bar_html,
-            "plot_formula": plot_formula 
+            "plot_formula": plot_formula
         })
+        st.rerun()
         
         # 6. Auto-Scroll down
         components.html(
