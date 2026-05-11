@@ -406,27 +406,25 @@ if st.session_state.user is None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # 3. SIDEBAR
 # ═══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
     uemail = st.session_state.user.email
     initial = uemail[0].upper()
+    
+    # Flattened sidebar profile card
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:11px;padding:4px 0 12px;">
-      <div style="flex-shrink:0;width:34px;height:34px;border-radius:50%;
-                  background:linear-gradient(135deg,#8b7acc,#3ca18d);
-                  display:flex;align-items:center;justify-content:center;
-                  font-family:'Sora',sans-serif;font-size:0.9rem;
-                  color:#fff;font-weight:600;">{initial}</div>
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#8b7acc,#3ca18d);display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-size:0.9rem;color:#fff;font-weight:600;">{initial}</div>
       <div style="min-width:0;">
-        <div style="font-size:0.8rem;color:#c8c8e8;font-weight:500;
-                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          {uemail.split('@')[0]}</div>
-        <div style="font-size:0.68rem;color:#5a5a80;white-space:nowrap;
-                    overflow:hidden;text-overflow:ellipsis;">{uemail}</div>
+        <div style="font-size:0.8rem;color:#c8c8e8;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{uemail.split('@')[0]}</div>
+        <div style="font-size:0.68rem;color:#5a5a80;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{uemail}</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # ... keep your Sign Out button right below this ...
 
     if st.button("Sign Out", key="so_btn"):
         supabase.auth.sign_out()
