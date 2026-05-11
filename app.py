@@ -276,16 +276,13 @@ div[data-testid="stChatMessage"]:has(svg[data-testid="chatAvatarIcon-user"]) {
 /* ── ICON RAIL (full-height collapsed sidebar) ───────────────── */
 #cls-rail {
   display: none;
-  position: fixed !important;
-  left: 0 !important; 
-  top: 0 !important; 
-  bottom: 0 !important;
-  width: 60px !important;
-  height: 100vh !important;
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: 48px;
   flex-direction: column;
   align-items: center;
-  z-index: 999999 !important;
-  background: #0a0a12 !important;
+  z-index: 9999;
+  background: #0a0a12;
   border-right: 1px solid rgba(255,255,255,0.06);
 }
 /* top section — brand + nav icons */
@@ -331,19 +328,8 @@ div[data-testid="stChatMessage"]:has(svg[data-testid="chatAvatarIcon-user"]) {
   color: #fff; cursor: default;
   font-family: 'Sora', sans-serif;
 }
-
-/* ── TELEPROMPTER HIGHLIGHT (Active Message Pulse) ───────────── */
-@keyframes active-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(139,122,204, 0.4); border-color: rgba(139,122,204, 0.8); }
-  70% { box-shadow: 0 0 0 8px rgba(139,122,204, 0); border-color: rgba(139,122,204, 0.3); }
-  100% { box-shadow: 0 0 0 0 rgba(139,122,204, 0); border-color: rgba(255,255,255,0.07); }
-}
-
-[data-testid="stChatMessage"]:has(svg[data-testid="chatAvatarIcon-assistant"]):last-of-type {
-  animation: active-pulse 3s infinite;
-  background: linear-gradient(145deg, var(--glass), rgba(139,122,204,0.05)) !important;
-  border-left: 3px solid var(--violet) !important;
-}
+</style>
+""", unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -365,12 +351,18 @@ if "user" not in st.session_state:
 if st.session_state.user is None:
     _, col, _ = st.columns([1, 1.5, 1])
     with col:
-        # Brand mark (Flattened and Unicode-safe)
+        # Brand mark
         st.markdown("""
         <div style="text-align:center;padding:32px 0 28px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;margin-bottom:14px;background:linear-gradient(135deg,rgba(139,122,204,0.25),rgba(60,161,141,0.25));border:1px solid rgba(255,255,255,0.1);font-size:1.7rem;">&#9672;</div>
-          <div style="font-family:'Sora',sans-serif;font-size:1.6rem;font-weight:700;color:#ddddf0;letter-spacing:-0.025em;">AI Classroom</div>
-          <div style="font-size:0.8rem;color:#6a6a90;margin-top:5px;">Sign in to access your personal learning space</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;
+                      width:56px;height:56px;border-radius:16px;margin-bottom:14px;
+                      background:linear-gradient(135deg,rgba(139,122,204,0.25),rgba(60,161,141,0.25));
+                      border:1px solid rgba(255,255,255,0.1);font-size:1.7rem;">◈</div>
+          <div style="font-family:'Sora',sans-serif;font-size:1.6rem;font-weight:700;
+                      color:#ddddf0;letter-spacing:-0.025em;">AI Classroom</div>
+          <div style="font-size:0.8rem;color:#6a6a90;margin-top:5px;">
+            Sign in to access your personal learning space
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -406,61 +398,34 @@ if st.session_state.user is None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ═══════════════════════════════════════════════════════════════════════════════
 # 3. SIDEBAR
 # ═══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
     uemail = st.session_state.user.email
     initial = uemail[0].upper()
-    
-    # Flattened sidebar profile card
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:11px;padding:4px 0 12px;">
-      <div style="flex-shrink:0;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#8b7acc,#3ca18d);display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-size:0.9rem;color:#fff;font-weight:600;">{initial}</div>
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:50%;
+                  background:linear-gradient(135deg,#8b7acc,#3ca18d);
+                  display:flex;align-items:center;justify-content:center;
+                  font-family:'Sora',sans-serif;font-size:0.9rem;
+                  color:#fff;font-weight:600;">{initial}</div>
       <div style="min-width:0;">
-        <div style="font-size:0.8rem;color:#c8c8e8;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{uemail.split('@')[0]}</div>
-        <div style="font-size:0.68rem;color:#5a5a80;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{uemail}</div>
+        <div style="font-size:0.8rem;color:#c8c8e8;font-weight:500;
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          {uemail.split('@')[0]}</div>
+        <div style="font-size:0.68rem;color:#5a5a80;white-space:nowrap;
+                    overflow:hidden;text-overflow:ellipsis;">{uemail}</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ... keep your Sign Out button right below this ...
-
     if st.button("Sign Out", key="so_btn"):
         supabase.auth.sign_out()
         st.session_state.user = None
         st.rerun()
 
     st.markdown("---")
-# ... existing Sign Out button code ...
-    if st.button("Sign Out", key="so_btn"):
-        supabase.auth.sign_out()
-        st.session_state.user = None
-        st.rerun()
-
-    st.markdown("---")
-    
-    # ⬇️ PASTE THIS NEW BLOCK HERE ⬇️
-    st.markdown("#### 📚 Recent Lectures")
-    try:
-        past_sessions = supabase.table("class_sessions").select("id, topic").eq("user_id", st.session_state.user.id).order("created_at", desc=True).limit(5).execute()
-        
-        if not past_sessions.data:
-            st.caption("No saved lectures yet.")
-        else:
-            for session in past_sessions.data:
-                display_topic = session['topic'][:22] + "..." if len(session['topic']) > 22 else session['topic']
-                if st.button(f"📄 {display_topic}", key=f"load_{session['id']}", use_container_width=True):
-                    st.toast("Loading session feature coming soon!")
-    except Exception as e:
-        st.caption("Could not load history.")
-        
-    st.markdown("---")
-    # ⬆️ END NEW BLOCK ⬆️
-
-    st.markdown("#### Course Material")
-    # ... rest of the file uploader code ...
-    
     st.markdown("#### Course Material")
     uploaded_file = st.file_uploader(
         "pdf_upload", type="pdf",
@@ -487,6 +452,8 @@ with st.sidebar:
         for k in ["messages", "pdf_text", "chat"]:
             st.session_state.pop(k, None)
         st.rerun()
+
+
 # ── Icon rail (appears when sidebar is collapsed) ──────────────────────────────
 st.markdown(f"""
 <div id="cls-rail">
@@ -517,9 +484,6 @@ st.markdown(f"""
   sync();
 }})();
 </script>
-""", unsafe_allow_html=True)
-
-
 """, unsafe_allow_html=True)
 
 
@@ -775,7 +739,7 @@ with chip_col:
     st.session_state.mode = "Seminar" if "Seminar" in mode_pick else "Chalkboard"
 
 with btn1_col:
-    raise_hand = st.button("✋ Excuse Me", key="rh_btn")
+    raise_hand = st.button("✋ Raise Hand", key="rh_btn")
 with btn2_col:
     quiz_me = st.button("✏ Quiz Me", key="qm_btn")
 
