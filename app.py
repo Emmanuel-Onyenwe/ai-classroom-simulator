@@ -84,30 +84,36 @@ def safe_generate_chat(chat_session, message, retries=3, wait=65):
 def trim_text(text, max_chars=6000):
     return text[:max_chars] + "\n\n[...document trimmed to fit token budget...]" if len(text) > max_chars else text
 
-# ── ✅ NEW HELPER: The Sandboxed Action Bar ─────────────────────────────────
 def make_action_bar(audio_b64: str, audio_id: str, message_text: str) -> str:
-    """Returns a self-contained HTML string to be rendered via components.v1.html."""
+    """
+    Returns a self-contained HTML string rendered via components.v1.html.
+
+    Cross-iframe audio-stop protocol:
+      PLAY  → iframe  ──postMessage──▶  window.parent  (type: "audio_playing", id)
+      COORD → parent  ──postMessage──▶  ALL iframes    (type: "stop_audio", except: id)
+      STOP  → iframe  checks id, pauses self if not exempt
+    """
     audio_tag = ""
     listen_btn = "<span style='color:#555;font-size:0.8rem;'>No audio</span>"
 
     if audio_b64:
         audio_tag = f"""
         <audio id="{audio_id}"
-               src="data:audio/mp3;base64,{audio_b64}"
-               onplay="document.getElementById('btn_{audio_id}').innerHTML='⏸️'"
-               onpause="document.getElementById('btn_{audio_id}').innerHTML='🔊'"
-               onended="document.getElementById('btn_{audio_id}').innerHTML='🔊'">
+               src="data:audio/mp3;base64,{audio_b64}">
         </audio>"""
 
         listen_btn = f"""
         <button id="btn_{audio_id}" class="action-btn" title="Listen / Pause"
-            onclick="var a=document.getElementById('{audio_id}');
-                     a.paused ? a.play() : a.pause();">
-            ⏸️
-        </button>"""
+            onclick="togglePlay()">🔊</button>"""
 
-    # Escape just enough to be safe in HTML text nodes
-    safe_text = message_text.replace('"', '&quot;').replace("'", "&#39;").replace("<", "&lt;").replace(">", "&gt;")
+    safe_text = (
+        message_text
+        .replace("&", "&amp;")
+        .replace('"', "&quot;")
+        .replace("'", "&#39;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
 
     return f"""<!DOCTYPE html>
 <html>
@@ -116,48 +122,118 @@ def make_action_bar(audio_b64: str, audio_id: str, message_text: str) -> str:
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
   body {{ background: transparent; font-family: sans-serif; padding: 6px 0 2px 0; }}
   .bar {{ display: flex; gap: 4px; align-items: center; }}
-  .action-btn {{ background: none; border: none; cursor: pointer; font-size: 1.05rem; padding: 5px 8px; border-radius: 6px; color: #8e8ea0; transition: background 0.15s, color 0.15s; }}
+  .action-btn {{ background: none; border: none; cursor: pointer; font-size: 1.05rem;
+                 padding: 5px 8px; border-radius: 6px; color: #8e8ea0;
+                 transition: background 0.15s, color 0.15s; }}
   .action-btn:hover {{ background: rgba(255,255,255,0.10); color: #ececf1; }}
-  .action-btn.liked  {{ color: #19c37d; }}
+  .action-btn.liked    {{ color: #19c37d; }}
   .action-btn.disliked {{ color: #ef4444; }}
-  .toast {{ display: inline-block; font-size: 0.75rem; color: #19c37d; margin-left: 6px; opacity: 0; transition: opacity 0.3s; }}
+  .toast {{ display: inline-block; font-size: 0.75rem; color: #19c37d;
+            margin-left: 6px; opacity: 0; transition: opacity 0.3s; }}
 </style>
 </head>
 <body>
   {audio_tag}
-  
-  <!-- THE FIX: Store text in a hidden div so quotes don't break the HTML attributes -->
   <div id="text_{audio_id}" style="display:none;">{safe_text}</div>
-  
+
   <div class="bar">
     {listen_btn}
-    
-    <!-- Copy Button -->
+
+    <!-- Copy -->
     <button class="action-btn" title="Copy text"
         onclick="
-            var txt = document.getElementById('text_{audio_id}').innerText;
-            navigator.clipboard.writeText(txt).then(() => {{
-              var t = document.getElementById('toast_{audio_id}');
-              t.style.opacity = 1; 
-              setTimeout(() => t.style.opacity = 0, 1800); 
-            }});
-        ">
-      📋
-    </button>
+          var txt = document.getElementById('text_{audio_id}').innerText;
+          navigator.clipboard.writeText(txt).then(() => {{
+            var t = document.getElementById('toast_{audio_id}');
+            t.style.opacity = 1;
+            setTimeout(() => t.style.opacity = 0, 1800);
+          }});
+        ">📋</button>
     <span class="toast" id="toast_{audio_id}">Copied!</span>
-    
+
     <!-- Like / Dislike -->
-    <button class="action-btn" id="like_{audio_id}" title="Good response" onclick="this.classList.toggle('liked'); document.getElementById('dislike_{audio_id}').classList.remove('disliked');">👍</button>
-    <button class="action-btn" id="dislike_{audio_id}" title="Bad response" onclick="this.classList.toggle('disliked'); document.getElementById('like_{audio_id}').classList.remove('liked');">👎</button>
+    <button class="action-btn" id="like_{audio_id}" title="Good response"
+        onclick="this.classList.toggle('liked');
+                 document.getElementById('dislike_{audio_id}').classList.remove('disliked');">👍</button>
+    <button class="action-btn" id="dislike_{audio_id}" title="Bad response"
+        onclick="this.classList.toggle('disliked');
+                 document.getElementById('like_{audio_id}').classList.remove('liked');">👎</button>
   </div>
-  
-  <script>
-    var aud = document.getElementById('{audio_id}');
-    if (aud) {{ setTimeout(() => aud.play().catch(() => {{}}), 400); }}
-  </script>
+
+<script>
+(function() {{
+  var MY_ID = "{audio_id}";
+  var aud   = document.getElementById(MY_ID);
+
+  /* ── 1. COORDINATOR: inject once into the shared parent window ─────────────
+     We stamp window.parent.__audioCoordReady so the block only runs the first
+     time any iframe loads.  All subsequent iframes skip straight to step 2.  */
+  if (window.parent && !window.parent.__audioCoordReady) {{
+    window.parent.__audioCoordReady = true;
+
+    window.parent.addEventListener("message", function (e) {{
+      if (!e.data || e.data.type !== "audio_playing") return;
+
+      var senderId = e.data.id;
+
+      /* Fan the stop command out to every iframe in the Streamlit page */
+      var frames = window.parent.document.querySelectorAll("iframe");
+      frames.forEach(function (frame) {{
+        try {{
+          frame.contentWindow.postMessage(
+            {{ type: "stop_audio", except: senderId }},
+            "*"
+          );
+        }} catch (_) {{}}   /* cross-origin safety – silently skip */
+      }});
+    }});
+  }}
+
+  /* ── 2. LISTENER: this iframe obeys stop commands from the coordinator ──── */
+  window.addEventListener("message", function (e) {{
+    if (!e.data || e.data.type !== "stop_audio") return;
+    if (e.data.except === MY_ID) return;   /* we are the protected player */
+    if (aud && !aud.paused) {{
+      aud.pause();
+      var btn = document.getElementById("btn_" + MY_ID);
+      if (btn) btn.innerHTML = "🔊";
+    }}
+  }});
+
+  /* ── 3. BROADCASTER + UI: wire the audio element's own events ─────────────*/
+  if (aud) {{
+    /* Whenever THIS audio starts, tell the coordinator */
+    aud.addEventListener("play", function () {{
+      if (window.parent) {{
+        window.parent.postMessage({{ type: "audio_playing", id: MY_ID }}, "*");
+      }}
+      var btn = document.getElementById("btn_" + MY_ID);
+      if (btn) btn.innerHTML = "⏸️";
+    }});
+
+    aud.addEventListener("pause",  function () {{
+      var btn = document.getElementById("btn_" + MY_ID);
+      if (btn) btn.innerHTML = "🔊";
+    }});
+    aud.addEventListener("ended",  function () {{
+      var btn = document.getElementById("btn_" + MY_ID);
+      if (btn) btn.innerHTML = "🔊";
+    }});
+
+    /* Auto-play on load (slight delay lets the iframe finish painting) */
+    setTimeout(function () {{ aud.play().catch(function () {{}}); }}, 400);
+  }}
+
+  /* ── 4. Toggle helper called by the listen button ─────────────────────────*/
+  window.togglePlay = function () {{
+    if (!aud) return;
+    if (aud.paused) {{ aud.play().catch(function(){{}}); }}
+    else            {{ aud.pause(); }}
+  }};
+}})();
+</script>
 </body>
 </html>"""
-
 # 5. Ingestion & The Hook
 if uploaded_file is not None and st.session_state.pdf_text == "":
     with st.spinner("Scanning course materials..."):
