@@ -273,35 +273,61 @@ div[data-testid="stChatMessage"]:has(svg[data-testid="chatAvatarIcon-user"]) {
 }
 .mode-chip .stSelectbox > div > div:hover { border-color: rgba(139,122,204,0.3) !important; }
 
-/* ── ICON RAIL ───────────────────────────────────────────────── */
+/* ── ICON RAIL (full-height collapsed sidebar) ───────────────── */
 #cls-rail {
   display: none;
   position: fixed;
-  left: 0; top: 50%;
-  transform: translateY(-50%);
+  left: 0; top: 0; bottom: 0;
+  width: 48px;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
   z-index: 9999;
-  background: rgba(9,9,16,0.95);
-  border-right: 1px solid var(--border);
-  padding: 14px 9px;
-  border-radius: 0 13px 13px 0;
-  backdrop-filter: blur(18px);
-  box-shadow: 4px 0 24px rgba(0,0,0,0.3);
+  background: #0a0a12;
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+/* top section — brand + nav icons */
+#cls-rail .rail-top {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 2px;
+  padding: 14px 0 0; flex: 1;
+}
+/* bottom section — user avatar */
+#cls-rail .rail-bot {
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 0 0 14px;
 }
 .rail-ic {
-  width: 34px; height: 34px;
+  width: 36px; height: 36px;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 0.9rem;
+  border-radius: 9px;
+  color: #4a4a6a;
+  font-size: 1rem;
   cursor: default;
   transition: background 0.15s, color 0.15s;
   user-select: none;
+  margin: 1px 0;
 }
-.rail-ic:hover { background: rgba(255,255,255,0.07); color: var(--text); }
-.rail-sep { width: 20px; height: 1px; background: var(--border); margin: 3px 0; }
+.rail-ic:hover { background: rgba(255,255,255,0.06); color: #9090b8; }
+.rail-ic.rail-brand {
+  color: #8b7acc;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+.rail-sep {
+  width: 24px; height: 1px;
+  background: rgba(255,255,255,0.05);
+  margin: 5px 0;
+}
+.rail-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#8b7acc,#3ca18d);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 600;
+  color: #fff; cursor: default;
+  font-family: 'Sora', sans-serif;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -429,27 +455,34 @@ with st.sidebar:
 
 
 # ── Icon rail (appears when sidebar is collapsed) ──────────────────────────────
-st.markdown("""
+st.markdown(f"""
 <div id="cls-rail">
-  <div class="rail-ic" title="Classroom Setup">◈</div>
-  <div class="rail-sep"></div>
-  <div class="rail-ic" title="Upload PDF">↑</div>
-  <div class="rail-ic" title="Teacher Voice">♪</div>
-  <div class="rail-sep"></div>
-  <div class="rail-ic" title="Clear Session">✕</div>
+  <div class="rail-top">
+    <div class="rail-ic rail-brand" title="AI Classroom">◈</div>
+    <div class="rail-sep"></div>
+    <div class="rail-ic" title="Course Material">↑</div>
+    <div class="rail-ic" title="Teacher Voice">♪</div>
+    <div class="rail-ic" title="Learning Mode">◎</div>
+    <div class="rail-sep"></div>
+    <div class="rail-ic" title="Export Notes">⎘</div>
+    <div class="rail-ic" title="Clear Session">✕</div>
+  </div>
+  <div class="rail-bot">
+    <div class="rail-avatar" title="{uemail}">{initial}</div>
+  </div>
 </div>
 <script>
-(function watchSidebar() {
+(function watchSidebar() {{
   var sb = document.querySelector('[data-testid="stSidebar"]');
-  if (!sb) { setTimeout(watchSidebar, 350); return; }
+  if (!sb) {{ setTimeout(watchSidebar, 350); return; }}
   var rail = document.getElementById('cls-rail');
-  function sync() {
+  function sync() {{
     if (!rail) return;
     rail.style.display = (sb.getAttribute('aria-expanded') === 'false') ? 'flex' : 'none';
-  }
-  new MutationObserver(sync).observe(sb, { attributes: true });
+  }}
+  new MutationObserver(sync).observe(sb, {{ attributes: true }});
   sync();
-})();
+}})();
 </script>
 """, unsafe_allow_html=True)
 
