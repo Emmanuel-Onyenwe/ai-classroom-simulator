@@ -276,13 +276,16 @@ div[data-testid="stChatMessage"]:has(svg[data-testid="chatAvatarIcon-user"]) {
 /* ── ICON RAIL (full-height collapsed sidebar) ───────────────── */
 #cls-rail {
   display: none;
-  position: fixed;
-  left: 0; top: 0; bottom: 0;
-  width: 48px;
+  position: fixed !important;
+  left: 0 !important; 
+  top: 0 !important; 
+  bottom: 0 !important;
+  width: 60px !important;
+  height: 100vh !important;
   flex-direction: column;
   align-items: center;
-  z-index: 9999;
-  background: #0a0a12;
+  z-index: 999999 !important;
+  background: #0a0a12 !important;
   border-right: 1px solid rgba(255,255,255,0.06);
 }
 /* top section — brand + nav icons */
@@ -328,8 +331,19 @@ div[data-testid="stChatMessage"]:has(svg[data-testid="chatAvatarIcon-user"]) {
   color: #fff; cursor: default;
   font-family: 'Sora', sans-serif;
 }
-</style>
-""", unsafe_allow_html=True)
+
+/* ── TELEPROMPTER HIGHLIGHT (Active Message Pulse) ───────────── */
+@keyframes active-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(139,122,204, 0.4); border-color: rgba(139,122,204, 0.8); }
+  70% { box-shadow: 0 0 0 8px rgba(139,122,204, 0); border-color: rgba(139,122,204, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(139,122,204, 0); border-color: rgba(255,255,255,0.07); }
+}
+
+[data-testid="stChatMessage"]:has(svg[data-testid="chatAvatarIcon-assistant"]):last-of-type {
+  animation: active-pulse 3s infinite;
+  background: linear-gradient(145deg, var(--glass), rgba(139,122,204,0.05)) !important;
+  border-left: 3px solid var(--violet) !important;
+}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -481,80 +495,39 @@ with st.sidebar:
         for k in ["messages", "pdf_text", "chat"]:
             st.session_state.pop(k, None)
         st.rerun()
+# ── Icon rail (appears when sidebar is collapsed) ──────────────────────────────
+st.markdown(f"""
+<div id="cls-rail">
+  <div class="rail-top">
+    <div class="rail-ic rail-brand" title="AI Classroom">◈</div>
+    <div class="rail-sep"></div>
+    <div class="rail-ic" title="Course Material">↑</div>
+    <div class="rail-ic" title="Teacher Voice">♪</div>
+    <div class="rail-ic" title="Learning Mode">◎</div>
+    <div class="rail-sep"></div>
+    <div class="rail-ic" title="Export Notes">⎘</div>
+    <div class="rail-ic" title="Clear Session">✕</div>
+  </div>
+  <div class="rail-bot">
+    <div class="rail-avatar" title="{uemail}">{initial}</div>
+  </div>
+</div>
+<script>
+(function watchSidebar() {{
+  var sb = document.querySelector('[data-testid="stSidebar"]');
+  if (!sb) {{ setTimeout(watchSidebar, 350); return; }}
+  var rail = document.getElementById('cls-rail');
+  function sync() {{
+    if (!rail) return;
+    rail.style.display = (sb.getAttribute('aria-expanded') === 'false') ? 'flex' : 'none';
+  }}
+  new MutationObserver(sync).observe(sb, {{ attributes: true }});
+  sync();
+}})();
+</script>
+""", unsafe_allow_html=True)
 
 
-/* ── ICON RAIL (full-height collapsed sidebar) ───────────────── */
-#cls-rail {
-  display: none;
-  position: fixed !important;
-  left: 0 !important; 
-  top: 0 !important; 
-  bottom: 0 !important;
-  width: 60px !important;
-  height: 100vh !important;
-  flex-direction: column;
-  align-items: center;
-  z-index: 999999 !important;
-  background: #0a0a12 !important;
-  border-right: 1px solid rgba(255,255,255,0.06);
-}
-/* top section — brand + nav icons */
-#cls-rail .rail-top {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 2px;
-  padding: 14px 0 0; flex: 1;
-}
-/* bottom section — user avatar */
-#cls-rail .rail-bot {
-  display: flex; flex-direction: column;
-  align-items: center;
-  padding: 0 0 14px;
-}
-.rail-ic {
-  width: 36px; height: 36px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 9px;
-  color: #4a4a6a;
-  font-size: 1rem;
-  cursor: default;
-  transition: background 0.15s, color 0.15s;
-  user-select: none;
-  margin: 1px 0;
-}
-.rail-ic:hover { background: rgba(255,255,255,0.06); color: #9090b8; }
-.rail-ic.rail-brand {
-  color: #8b7acc;
-  font-size: 1.1rem;
-  margin-bottom: 8px;
-}
-.rail-sep {
-  width: 24px; height: 1px;
-  background: rgba(255,255,255,0.05);
-  margin: 5px 0;
-}
-.rail-avatar {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: linear-gradient(135deg,#8b7acc,#3ca18d);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.75rem; font-weight: 600;
-  color: #fff; cursor: default;
-  font-family: 'Sora', sans-serif;
-}
-
-/* ── TELEPROMPTER HIGHLIGHT (Active Message Pulse) ───────────── */
-@keyframes active-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(139,122,204, 0.4); border-color: rgba(139,122,204, 0.8); }
-  70% { box-shadow: 0 0 0 8px rgba(139,122,204, 0); border-color: rgba(139,122,204, 0.3); }
-  100% { box-shadow: 0 0 0 0 rgba(139,122,204, 0); border-color: rgba(255,255,255,0.07); }
-}
-
-[data-testid="stChatMessage"]:has(svg[data-testid="chatAvatarIcon-assistant"]):last-of-type {
-  animation: active-pulse 3s infinite;
-  background: linear-gradient(145deg, var(--glass), rgba(139,122,204,0.05)) !important;
-  border-left: 3px solid var(--violet) !important;
-}
-</style>
 """, unsafe_allow_html=True)
 
 
