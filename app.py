@@ -1,4 +1,6 @@
 import streamlit as st
+from supabase import create_client, Client
+import streamlit as st
 import google.generativeai as genai
 import PyPDF2
 import edge_tts
@@ -11,6 +13,70 @@ from google.api_core.exceptions import ResourceExhausted
 import streamlit.components.v1 as components # ✅ ADDED FOR THE UI FIX
 import numpy as np
 import pandas as pd
+
+# --- 1. SUPABASE CONNECTION ---
+@st.cache_resource
+def init_supabase():
+    url: str = st.secrets["SUPABASE_URL"]
+    key: str = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+supabase: Client = init_supabase()
+
+# --- 2. USER AUTHENTICATION STATE ---
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+# --- 3. THE FRONT DOOR (LOGIN SCREEN) ---
+if st.session_state.user is None:
+    # Use columns to make the login box look nice and centered
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.title("👨‍🏫 AI Classroom")
+        st.subheader("Sign In to Access Your Notes")
+        
+        tab1, tab2 = st.tabs(["Log In", "Create Account"])
+        
+        with tab1:
+            st.markdown("### Welcome Back")
+            login_email = st.text_input("Email", key="log_email")
+            login_pass = st.text_input("Password", type="password", key="log_pass")
+            if st.button("Log In", use_container_width=True):
+                try:
+                    res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_pass})
+                    st.session_state.user = res.user
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Login failed: {e}")
+                    
+        with tab2:
+            st.markdown("### New Student")
+            new_email = st.text_input("Email", key="reg_email")
+            new_pass = st.text_input("Password", type="password", key="reg_pass")
+            if st.button("Sign Up", use_container_width=True):
+                try:
+                    res = supabase.auth.sign_up({"email": new_email, "password": new_pass})
+                    st.success("Account created! Please switch to the 'Log In' tab to enter the classroom.")
+                except Exception as e:
+                    st.error(f"Sign up failed: {e}")
+                    
+    # st.stop() acts as the bouncer. 
+    # It completely prevents the rest of your app's code from running!
+    st.stop() 
+
+# --- 4. LOGOUT BUTTON (If they made it past the bouncer) ---
+with st.sidebar:
+    st.markdown(f"👤 Logged in as: **{st.session_state.user.email}**")
+    if st.button("🚪 Log Out"):
+        supabase.auth.sign_out()
+        st.session_state.user = None
+        st.rerun()
+    st.markdown("---")
+
+# =========================================================
+# THE REST OF YOUR APP CODE GOES HERE (Classroom UI, PDF setup, etc)
+# =========================================================
 
 # 1. UI Configuration
 st.set_page_config(page_title="AI Classroom Simulator", layout="wide")
