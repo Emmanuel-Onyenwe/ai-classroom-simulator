@@ -494,15 +494,55 @@ with st.sidebar:
   height: 100vh !important;
   flex-direction: column;
   align-items: center;
-  z-index: 999999 !important; /* Force to the very front */
+  z-index: 999999 !important;
   background: #0a0a12 !important;
   border-right: 1px solid rgba(255,255,255,0.06);
 }
-
-/* ... keep the rest of your rail-top, rail-bot CSS exactly the same ... */
+/* top section — brand + nav icons */
+#cls-rail .rail-top {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 2px;
+  padding: 14px 0 0; flex: 1;
+}
+/* bottom section — user avatar */
+#cls-rail .rail-bot {
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 0 0 14px;
+}
+.rail-ic {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 9px;
+  color: #4a4a6a;
+  font-size: 1rem;
+  cursor: default;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+  margin: 1px 0;
+}
+.rail-ic:hover { background: rgba(255,255,255,0.06); color: #9090b8; }
+.rail-ic.rail-brand {
+  color: #8b7acc;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+.rail-sep {
+  width: 24px; height: 1px;
+  background: rgba(255,255,255,0.05);
+  margin: 5px 0;
+}
+.rail-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#8b7acc,#3ca18d);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 600;
+  color: #fff; cursor: default;
+  font-family: 'Sora', sans-serif;
+}
 
 /* ── TELEPROMPTER HIGHLIGHT (Active Message Pulse) ───────────── */
-/* Add this right before the closing </style> tag */
 @keyframes active-pulse {
   0% { box-shadow: 0 0 0 0 rgba(139,122,204, 0.4); border-color: rgba(139,122,204, 0.8); }
   70% { box-shadow: 0 0 0 8px rgba(139,122,204, 0); border-color: rgba(139,122,204, 0.3); }
@@ -514,6 +554,8 @@ with st.sidebar:
   background: linear-gradient(145deg, var(--glass), rgba(139,122,204,0.05)) !important;
   border-left: 3px solid var(--violet) !important;
 }
+</style>
+""", unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
