@@ -426,6 +426,35 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
+# ... existing Sign Out button code ...
+    if st.button("Sign Out", key="so_btn"):
+        supabase.auth.sign_out()
+        st.session_state.user = None
+        st.rerun()
+
+    st.markdown("---")
+    
+    # ⬇️ PASTE THIS NEW BLOCK HERE ⬇️
+    st.markdown("#### 📚 Recent Lectures")
+    try:
+        past_sessions = supabase.table("class_sessions").select("id, topic").eq("user_id", st.session_state.user.id).order("created_at", desc=True).limit(5).execute()
+        
+        if not past_sessions.data:
+            st.caption("No saved lectures yet.")
+        else:
+            for session in past_sessions.data:
+                display_topic = session['topic'][:22] + "..." if len(session['topic']) > 22 else session['topic']
+                if st.button(f"📄 {display_topic}", key=f"load_{session['id']}", use_container_width=True):
+                    st.toast("Loading session feature coming soon!")
+    except Exception as e:
+        st.caption("Could not load history.")
+        
+    st.markdown("---")
+    # ⬆️ END NEW BLOCK ⬆️
+
+    st.markdown("#### Course Material")
+    # ... rest of the file uploader code ...
+    
     st.markdown("#### Course Material")
     uploaded_file = st.file_uploader(
         "pdf_upload", type="pdf",
@@ -454,37 +483,37 @@ with st.sidebar:
         st.rerun()
 
 
-# ── Icon rail (appears when sidebar is collapsed) ──────────────────────────────
-st.markdown(f"""
-<div id="cls-rail">
-  <div class="rail-top">
-    <div class="rail-ic rail-brand" title="AI Classroom">◈</div>
-    <div class="rail-sep"></div>
-    <div class="rail-ic" title="Course Material">↑</div>
-    <div class="rail-ic" title="Teacher Voice">♪</div>
-    <div class="rail-ic" title="Learning Mode">◎</div>
-    <div class="rail-sep"></div>
-    <div class="rail-ic" title="Export Notes">⎘</div>
-    <div class="rail-ic" title="Clear Session">✕</div>
-  </div>
-  <div class="rail-bot">
-    <div class="rail-avatar" title="{uemail}">{initial}</div>
-  </div>
-</div>
-<script>
-(function watchSidebar() {{
-  var sb = document.querySelector('[data-testid="stSidebar"]');
-  if (!sb) {{ setTimeout(watchSidebar, 350); return; }}
-  var rail = document.getElementById('cls-rail');
-  function sync() {{
-    if (!rail) return;
-    rail.style.display = (sb.getAttribute('aria-expanded') === 'false') ? 'flex' : 'none';
-  }}
-  new MutationObserver(sync).observe(sb, {{ attributes: true }});
-  sync();
-}})();
-</script>
-""", unsafe_allow_html=True)
+/* ── ICON RAIL (full-height collapsed sidebar) ───────────────── */
+#cls-rail {
+  display: none;
+  position: fixed !important;
+  left: 0 !important; 
+  top: 0 !important; 
+  bottom: 0 !important;
+  width: 60px !important;
+  height: 100vh !important;
+  flex-direction: column;
+  align-items: center;
+  z-index: 999999 !important; /* Force to the very front */
+  background: #0a0a12 !important;
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ... keep the rest of your rail-top, rail-bot CSS exactly the same ... */
+
+/* ── TELEPROMPTER HIGHLIGHT (Active Message Pulse) ───────────── */
+/* Add this right before the closing </style> tag */
+@keyframes active-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(139,122,204, 0.4); border-color: rgba(139,122,204, 0.8); }
+  70% { box-shadow: 0 0 0 8px rgba(139,122,204, 0); border-color: rgba(139,122,204, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(139,122,204, 0); border-color: rgba(255,255,255,0.07); }
+}
+
+[data-testid="stChatMessage"]:has(svg[data-testid="chatAvatarIcon-assistant"]):last-of-type {
+  animation: active-pulse 3s infinite;
+  background: linear-gradient(145deg, var(--glass), rgba(139,122,204,0.05)) !important;
+  border-left: 3px solid var(--violet) !important;
+}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -739,7 +768,7 @@ with chip_col:
     st.session_state.mode = "Seminar" if "Seminar" in mode_pick else "Chalkboard"
 
 with btn1_col:
-    raise_hand = st.button("✋ Raise Hand", key="rh_btn")
+    raise_hand = st.button("✋ Excuse Me", key="rh_btn")
 with btn2_col:
     quiz_me = st.button("✏ Quiz Me", key="qm_btn")
 
