@@ -271,6 +271,13 @@ if student_input:
         st.error("⚠️ Please upload your Course PDF first so the professor can review the materials!")
         st.stop()
 
+    # ✅ THE "CUT ITSELF" FIX: Mute the previous audio instantly
+    if len(st.session_state.messages) > 0:
+        last_msg = st.session_state.messages[-1]
+        if last_msg["role"] == "assistant" and "audio_html" in last_msg:
+            # Replacing 'aud.play()' forces Streamlit to redraw the player silently
+            last_msg["audio_html"] = last_msg["audio_html"].replace("aud.play()", "console.log('muted')")
+
     st.session_state.messages.append({"role": "user", "content": student_input})
     with st.chat_message("user"):
         st.write(student_input)
