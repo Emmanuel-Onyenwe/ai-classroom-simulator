@@ -20,13 +20,8 @@ st.caption("Powered by Gemini 2.5 Flash") # Updated to 1.5 for quota limits!
 # 2. The Sidebar (Engine & Settings)
 with st.sidebar:
     st.header("⚙️ Classroom Setup")
-    # Securely grab the key from Streamlit's cloud vault
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
-except KeyError:
-    st.error("Missing API Key! Please add it to your Streamlit Cloud Secrets.")
-    st.stop()
+    
+    # YOU PROBABLY ACCIDENTALLY DELETED THIS LINE 👇
     uploaded_file = st.file_uploader("Drop your Course PDF here", type="pdf")
     
     st.markdown("---")
@@ -59,6 +54,13 @@ except KeyError:
             del st.session_state.chat
         st.rerun()
 
+# --- SECURE CLOUD API SETUP ---
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
+except KeyError:
+    st.error("Missing API Key! Please add it to your Streamlit Cloud Secrets.")
+    st.stop()
 # 3. Security Check
 if not api_key:
     st.warning("Please enter your Gemini API Key in the sidebar to enter the classroom.")
