@@ -314,16 +314,18 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
         
-        # Redraw the graph if this specific message had one!
-        if msg.get("plot_formula"):
-            try:
-                x = np.linspace(-10, 10, 400)
-                safe_dict = {"x": x, "np": np}
-                y = eval(msg["plot_formula"], {"__builtins__": None}, safe_dict)
-                df = pd.DataFrame({"x": x, "y": y}).set_index("x")
-                st.line_chart(df, use_container_width=True)
-            except Exception:
-                pass # Skip silently if the old formula was broken
+       # Redraw the action buttons and audio
+        if msg["role"] == "assistant" and msg.get("audio_html"):
+            html_to_render = msg["audio_html"]
+            # Only the LAST message should autoplay on redraw.
+            # All older iframes get their autoplay line neutered.
+            is_last_message = (msg is st.session_state.messages[-1])
+            if not is_last_message:
+                html_to_render = html_to_render.replace(
+                    "setTimeout(function () { aud.play().catch(function () {}); }, 400);",
+                    "/* autoplay suppressed for old message */"
+                )
+            components.html(html_to_render, height=54, scrolling=False)
                 
         # Redraw the action buttons and audio
         if msg["role"] == "assistant" and msg.get("audio_html"):
