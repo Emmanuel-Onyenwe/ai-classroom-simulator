@@ -21,7 +21,6 @@ st.caption("Powered by Gemini 2.5 Flash") # Updated to 1.5 for quota limits!
 with st.sidebar:
     st.header("⚙️ Classroom Setup")
     
-    # YOU PROBABLY ACCIDENTALLY DELETED THIS LINE 👇
     uploaded_file = st.file_uploader("Drop your Course PDF here", type="pdf")
     
     st.markdown("---")
@@ -54,20 +53,22 @@ with st.sidebar:
             del st.session_state.chat
         st.rerun()
 
-# --- SECURE CLOUD API SETUP ---
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
-except KeyError:
-    st.error("Missing API Key! Please add it to your Streamlit Cloud Secrets.")
-    st.stop()
-# 3. Security Check
-if not api_key:
-    st.warning("Please enter your Gemini API Key in the sidebar to enter the classroom.")
+# --- SECURE DUAL-KEY SETUP ---
+if "api_keys" not in st.session_state:
+    # Grab both keys from the vault
+    key1 = st.secrets.get("GEMINI_API_KEY_1")
+    key2 = st.secrets.get("GEMINI_API_KEY_2")
+    
+    # Store whichever ones actually exist
+    st.session_state.api_keys = [k for k in [key1, key2] if k]
+    st.session_state.current_key_index = 0
+
+if not st.session_state.api_keys:
+    st.error("Missing API Keys! Please add them to your Streamlit Cloud Secrets.")
     st.stop()
 
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-2.5-flash') # Using 1.5 for better rate limits
+# Boot up the engine with the first key
+genai.configure(api_key=st.session_state.api_keys[st.session_state.current_key_index])
 
 # 4. Memory (Remembering the chat and PDF)
 if "messages" not in st.session_state:
@@ -76,18 +77,42 @@ if "pdf_text" not in st.session_state:
     st.session_state.pdf_text = ""
 
 # ── Helpers: Generation & Text ──────────────────────────────────────────────
-def safe_generate_chat(chat_session, message, retries=3, wait=65):
-    for attempt in range(retries):
+def safe_generate_chat(chat_session, message):
+    keys = st.session_state.api_keys
+    
+    # Try every key we have before giving up
+    for attempt in range(len(keys)):
         try:
             return chat_session.send_message(message)
+            
         except ResourceExhausted:
-            if attempt < retries - 1:
-                with st.spinner(f"Rate limit hit — waiting {wait}s before retry {attempt + 1}/{retries - 1}..."):
-                    time.sleep(wait)
-            else:
-                raise
+            # If the key is dead, flip the changeover switch to the next one!
+            st.warning(f"🔋 Key {st.session_state.current_key_index + 1} exhausted! Switching to backup...")
+            
+            # Move to the next key index (loops back to 0 if we hit the end)
+            st.session_state.current_key_index = (st.session_state.current_key_index + 1) % len(keys)
+            
+            # Reconfigure the global API with the new key
+            new_key = keys[st.session_state.current_key_index]
+            genai.configure(api_key=new_key)
+            
+            # We need to re-initialize the model and chat session with the new key,
+            # while keeping the old conversation history perfectly intact!
+            global model
+            model = genai.GenerativeModel('gemini-2.5-flash') # Ensure this matches your actual model string!
+            
+            old_history = chat_session.history
+            chat_session = model.start_chat(history=old_history)
+            
+            # The loop will restart and try the send_message again with the new key
+            continue
+            
         except Exception:
-            raise
+            raise # If it's a normal network error, just crash normally
+            
+    # If we loop through all keys and STILL fail, then we are truly out of juice
+    st.error("⚠️ All backup API keys are exhausted! Please wait a few minutes.")
+    st.stop()
 
 def trim_text(text, max_chars=6000):
     return text[:max_chars] + "\n\n[...document trimmed to fit token budget...]" if len(text) > max_chars else text
