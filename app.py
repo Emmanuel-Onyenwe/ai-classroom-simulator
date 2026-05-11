@@ -365,10 +365,10 @@ if "user" not in st.session_state:
 if st.session_state.user is None:
     _, col, _ = st.columns([1, 1.5, 1])
     with col:
-        # Brand mark (Flattened to prevent string errors)
+        # Brand mark (Flattened and Unicode-safe)
         st.markdown("""
         <div style="text-align:center;padding:32px 0 28px;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;margin-bottom:14px;background:linear-gradient(135deg,rgba(139,122,204,0.25),rgba(60,161,141,0.25));border:1px solid rgba(255,255,255,0.1);font-size:1.7rem;">◈</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;margin-bottom:14px;background:linear-gradient(135deg,rgba(139,122,204,0.25),rgba(60,161,141,0.25));border:1px solid rgba(255,255,255,0.1);font-size:1.7rem;">&#9672;</div>
           <div style="font-family:'Sora',sans-serif;font-size:1.6rem;font-weight:700;color:#ddddf0;letter-spacing:-0.025em;">AI Classroom</div>
           <div style="font-size:0.8rem;color:#6a6a90;margin-top:5px;">Sign in to access your personal learning space</div>
         </div>
