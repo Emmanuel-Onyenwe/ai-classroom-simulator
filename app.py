@@ -463,9 +463,7 @@ st.markdown(f"""
   <div class="rt">
     <div class="ric brand" title="AI Classroom">◈</div>
     <div class="rsep"></div>
-    
     <div class="ric" title="New Lecture" onclick="window.parent.document.querySelector('[data-testid=&quot;stSidebarCollapseButton&quot;]').click()">➕</div>
-    
     <div class="ric" title="Upload PDF">⬆</div>
     <div class="ric" title="Teacher Voice">♪</div>
     <div class="ric" title="Recent Sessions">⏱</div>
@@ -478,6 +476,7 @@ st.markdown(f"""
   </div>
 </div>
 """, unsafe_allow_html=True)
+
 # JS in components.html so it can access window.parent DOM
 components.html("""
 <script>
