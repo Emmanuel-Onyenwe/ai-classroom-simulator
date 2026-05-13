@@ -417,7 +417,7 @@ with st.sidebar:
     st.markdown("#### Course Material")
     uploaded_file = st.file_uploader("pdf", type="pdf", label_visibility="collapsed")
     st.markdown("#### Course Material")
-    uploaded_file = st.file_uploader("pdf", type="pdf", label_visibility="collapsed")
+    uploaded_file = st.file_uploader("pdf", type="pdf", label_visibility="collapsed", key="main_course_pdf_uploader")
     st.caption("Upload a PDF to start the session")
 
     st.markdown("---")
