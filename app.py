@@ -188,19 +188,26 @@ div[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
 }
 .mode-chip .stSelectbox > div > div:hover { border-color:rgba(139,122,204,0.3) !important; }
 
-/* ── NOW COVERING BANNER ── */
+/* ── NOW COVERING BANNER (FLOATING WIDGET) ── */
 .now-covering {
-  display:inline-flex; align-items:center; gap:8px; padding:5px 14px 5px 10px;
-  background:rgba(139,122,204,0.07); border:1px solid rgba(139,122,204,0.16);
-  border-radius:20px; font-size:0.72rem; color:#9a8fc8;
-  margin-bottom:12px; max-width:100%; overflow:hidden;
+  position: fixed !important;
+  top: 65px; /* Sits right below the top menu bar */
+  right: 24px;
+  z-index: 999999;
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px 8px 14px;
+  background: rgba(9,9,16,0.85); border: 1px solid rgba(139,122,204,0.3);
+  border-radius: 30px; font-size: 0.75rem; color: #b0a0dc;
+  max-width: 350px; overflow: hidden;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  transition: all 0.3s ease;
 }
 .nc-dot {
-  width:6px; height:6px; border-radius:50%; background:#8b7acc; flex-shrink:0;
-  animation:ncpulse 2s ease-in-out infinite;
+  width: 6px; height: 6px; border-radius: 50%; background: #8b7acc; flex-shrink: 0;
+  animation: ncpulse 2s ease-in-out infinite;
 }
 @keyframes ncpulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
-.nc-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddddf0; }
 
 /* ── ICON RAIL ── */
 #cls-rail {
@@ -291,18 +298,25 @@ def save_session_to_db():
         return
     sid = st.session_state.setdefault("session_id", str(uuid_lib.uuid4()))
     
-    # --- SMART NAMING FIX ---
-    title = "New Lecture"
-    # Scan the chat and name it after the first thing the STUDENT says
-    for m in st.session_state.messages:
-        if m["role"] == "user":
-            txt = m.get("content", "").strip()
-            if txt:
-                # Clean it up and cap it at 32 characters
-                clean_txt = re.sub(r'\s+', ' ', txt)
-                title = clean_txt[:32] + ("..." if len(clean_txt) > 32 else "")
+    # 1. Grab PDF Name (Cap at 12 chars so it doesn't hog space)
+    pdf_name = st.session_state.get("pdf_name", "Lecture")
+    if len(pdf_name) > 12:
+        pdf_name = pdf_name[:10] + "…"
+
+    # 2. Grab Current AI Topic (Auto-updates as chat progresses)
+    topic = "New Session"
+    last_prof = next((m for m in reversed(st.session_state.messages) if m["role"] == "assistant"), None)
+    if last_prof:
+        clean = re.sub(r'<[^>]+>', '', last_prof.get("content",""))
+        clean = re.sub(r'[*#_`$\\]+', '', clean).strip()
+        for s in re.split(r'(?<=[.!?])\s+', clean):
+            s = s.strip()
+            if len(s) > 10:
+                topic = (s[:30] + "…") if len(s) > 30 else s
                 break
-    # ------------------------
+
+    # 3. Fuse them together
+    title = f"{pdf_name}: {topic}"
 
     lean = [{"role": m["role"], "content": m.get("content","")} for m in st.session_state.messages]
     try:
@@ -433,20 +447,22 @@ with st.sidebar:
     st.markdown("#### Recent Sessions")
     recent = load_recent_sessions()
     if recent:
-        for s in recent:
-            label = (s.get("title") or "Untitled")[:42]
-            if st.button(f"↩  {label}", key=f"sess_{s['id']}"):
-                try:
-                    row = (supabase.table("chat_sessions").select("messages")
-                           .eq("id", s["id"]).single().execute())
-                    restored = json.loads(row.data["messages"])
-                    st.session_state.messages   = restored
-                    st.session_state.session_id = s["id"]
-                    st.session_state.pdf_text   = " "
-                    st.session_state.pop("chat", None)
-                    st.rerun()
-                except Exception:
-                    st.error("Could not restore session.")
+        # ⬇️ WRAP IN A SCROLLABLE CONTAINER (Height: 240px) ⬇️
+        with st.container(height=240, border=False):
+            for s in recent:
+                label = (s.get("title") or "Untitled")[:42]
+                if st.button(f"↩  {label}", key=f"sess_{s['id']}", use_container_width=True):
+                    try:
+                        row = (supabase.table("chat_sessions").select("messages")
+                               .eq("id", s["id"]).single().execute())
+                        restored = json.loads(row.data["messages"])
+                        st.session_state.messages   = restored
+                        st.session_state.session_id = s["id"]
+                        st.session_state.pdf_text   = " "
+                        st.session_state.pop("chat", None)
+                        st.rerun()
+                    except Exception:
+                        st.error("Could not restore session.")
     else:
         st.caption("No recent sessions yet")
 
@@ -677,6 +693,8 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════════════════════════
 if uploaded_file is not None and st.session_state.pdf_text == "":
     with st.spinner("Reading course material…"):
+        # ⬇️ THIS LINE ⬇️
+        st.session_state.pdf_name = uploaded_file.name.replace(".pdf", "") 
         reader = PyPDF2.PdfReader(uploaded_file)
         text = "".join(
             reader.pages[p].extract_text()
