@@ -225,51 +225,40 @@ div[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
   font-size:0.72rem; font-weight:600; color:#fff; font-family:'Sora',sans-serif;
 }
 
-/* ── LOGIN TABS — centered, auto-width, not full-stretch ── */
-.stTabs [data-baseweb="tab-list"] {
-  display:inline-flex !important;          /* shrink to content */
-  width:auto !important;
-  margin:0 auto !important;               /* centre in column  */
-}
-/* wrapper to actually centre the inline-flex child */
+/* ── LOGIN TABS — center the tab strip only, leave form untouched ── */
 [data-testid="stTabs"] > div:first-child {
   display:flex !important;
   justify-content:center !important;
 }
+.stTabs [data-baseweb="tab-list"] {
+  width:auto !important;
+}
 
 /* ── MOBILE ── */
 @media (max-width:768px) {
+  /* hide the icon rail entirely on mobile — sidebar toggle arrow handles it */
+  #cls-rail { display:none !important; }
+
   /* chat bubbles */
   [data-testid="stChatMessage"] {
     padding:10px 13px !important; border-radius:13px !important;
   }
 
-  /* ── COMPACT PROMPT AREA ── */
-  /* The input itself: shorter min-height so it doesn't dominate */
+  /* compact prompt bar */
   [data-testid="stChatInput"] > div {
     border-radius:11px !important;
-    min-height:44px !important;
   }
   [data-testid="stChatInput"] textarea {
     font-size:0.88rem !important;
-    min-height:44px !important;
     padding:10px 14px !important;
   }
-  /* submit button inside chat input */
-  [data-testid="stChatInput"] button {
-    width:34px !important; height:34px !important;
-  }
 
-  /* ── MODE CHIP + RAISE/QUIZ row ── */
+  /* buttons row */
   .stButton > button {
     padding:6px 10px !important; font-size:0.76rem !important;
   }
 
-  /* ── GENERAL TEXT ── */
   p { font-size:0.88rem !important; }
-
-  /* ── HIDE SIDEBAR TOGGLE LABEL ── */
-  [data-testid="stSidebarCollapseButton"] span { display:none !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -327,7 +316,7 @@ def load_recent_sessions():
 # 2. LOGIN
 # ═══════════════════════════════════════════════════════════════════════════════
 if st.session_state.user is None:
-    _, col, _ = st.columns([1, 1.6, 1])
+    _, col, _ = st.columns([0.4, 2, 0.4])
     with col:
         st.markdown("""
         <div style="text-align:center;padding:40px 0 24px;">
