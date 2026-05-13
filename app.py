@@ -290,12 +290,20 @@ def save_session_to_db():
     if not st.session_state.get("user") or not st.session_state.get("messages"):
         return
     sid = st.session_state.setdefault("session_id", str(uuid_lib.uuid4()))
-    title = "New session"
+    
+    # --- SMART NAMING FIX ---
+    title = "New Lecture"
+    # Scan the chat and name it after the first thing the STUDENT says
     for m in st.session_state.messages:
-        txt = m.get("content","").strip()
-        if txt:
-            title = re.sub(r'\s+',' ', txt)[:60]
-            break
+        if m["role"] == "user":
+            txt = m.get("content", "").strip()
+            if txt:
+                # Clean it up and cap it at 32 characters
+                clean_txt = re.sub(r'\s+', ' ', txt)
+                title = clean_txt[:32] + ("..." if len(clean_txt) > 32 else "")
+                break
+    # ------------------------
+
     lean = [{"role": m["role"], "content": m.get("content","")} for m in st.session_state.messages]
     try:
         supabase.table("chat_sessions").upsert({
@@ -398,6 +406,16 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
+    
+    # --- NEW CHAT BUTTON FIX ---
+    if st.button("➕ New Lecture", type="primary", use_container_width=True):
+        for k in ["messages", "pdf_text", "chat", "session_id"]:
+            st.session_state.pop(k, None)
+        st.rerun()
+    # ---------------------------
+
+    st.markdown("#### Course Material")
+    uploaded_file = st.file_uploader("pdf", type="pdf", label_visibility="collapsed")
     st.markdown("#### Course Material")
     uploaded_file = st.file_uploader("pdf", type="pdf", label_visibility="collapsed")
     st.caption("Upload a PDF to start the session")
