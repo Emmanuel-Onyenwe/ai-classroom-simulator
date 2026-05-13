@@ -225,12 +225,51 @@ div[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
   font-size:0.72rem; font-weight:600; color:#fff; font-family:'Sora',sans-serif;
 }
 
+/* ── LOGIN TABS — centered, auto-width, not full-stretch ── */
+.stTabs [data-baseweb="tab-list"] {
+  display:inline-flex !important;          /* shrink to content */
+  width:auto !important;
+  margin:0 auto !important;               /* centre in column  */
+}
+/* wrapper to actually centre the inline-flex child */
+[data-testid="stTabs"] > div:first-child {
+  display:flex !important;
+  justify-content:center !important;
+}
+
 /* ── MOBILE ── */
 @media (max-width:768px) {
-  [data-testid="stChatMessage"] { padding:12px 14px !important; border-radius:14px !important; }
-  [data-testid="stChatInput"] > div { border-radius:12px !important; }
-  .stButton > button { padding:7px 10px !important; font-size:0.78rem !important; }
-  p { font-size:0.9rem !important; }
+  /* chat bubbles */
+  [data-testid="stChatMessage"] {
+    padding:10px 13px !important; border-radius:13px !important;
+  }
+
+  /* ── COMPACT PROMPT AREA ── */
+  /* The input itself: shorter min-height so it doesn't dominate */
+  [data-testid="stChatInput"] > div {
+    border-radius:11px !important;
+    min-height:44px !important;
+  }
+  [data-testid="stChatInput"] textarea {
+    font-size:0.88rem !important;
+    min-height:44px !important;
+    padding:10px 14px !important;
+  }
+  /* submit button inside chat input */
+  [data-testid="stChatInput"] button {
+    width:34px !important; height:34px !important;
+  }
+
+  /* ── MODE CHIP + RAISE/QUIZ row ── */
+  .stButton > button {
+    padding:6px 10px !important; font-size:0.76rem !important;
+  }
+
+  /* ── GENERAL TEXT ── */
+  p { font-size:0.88rem !important; }
+
+  /* ── HIDE SIDEBAR TOGGLE LABEL ── */
+  [data-testid="stSidebarCollapseButton"] span { display:none !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -288,7 +327,7 @@ def load_recent_sessions():
 # 2. LOGIN
 # ═══════════════════════════════════════════════════════════════════════════════
 if st.session_state.user is None:
-    _, col, _ = st.columns([0.4, 2, 0.4])
+    _, col, _ = st.columns([1, 1.6, 1])
     with col:
         st.markdown("""
         <div style="text-align:center;padding:40px 0 24px;">
@@ -425,22 +464,40 @@ st.markdown(f"""
 # JS in components.html so it can access window.parent DOM
 components.html("""
 <script>
-(function poll(){
-  try {
-    var sb   = window.parent.document.querySelector('[data-testid="stSidebar"]');
-    var rail = window.parent.document.getElementById('cls-rail');
-    if (!sb || !rail) { setTimeout(poll, 300); return; }
-    function sync() {
-      var w = sb.getBoundingClientRect().width;
-      // collapsed = aria-expanded false OR width under 60px
-      var collapsed = sb.getAttribute('aria-expanded') === 'false' || w < 60;
-      rail.style.display = collapsed ? 'flex' : 'none';
-    }
-    new MutationObserver(sync).observe(sb, {attributes:true});
-    // also watch resize
-    new ResizeObserver(sync).observe(sb);
-    sync();
-  } catch(e) { setTimeout(poll, 400); }
+(function(){
+  /* ── 1. Auto-collapse sidebar on mobile (<= 768px) ── */
+  function collapseIfMobile() {
+    try {
+      var sb = window.parent.document.querySelector('[data-testid="stSidebar"]');
+      if (!sb) return;
+      var btn = window.parent.document.querySelector('[data-testid="stSidebarCollapseButton"]');
+      if (window.parent.innerWidth <= 768 && sb.getAttribute('aria-expanded') !== 'false' && btn) {
+        btn.click();
+      }
+    } catch(e) {}
+  }
+  // Run once after DOM settles
+  setTimeout(collapseIfMobile, 600);
+  // Re-run on orientation change
+  window.parent.addEventListener('resize', collapseIfMobile);
+
+  /* ── 2. Icon rail sync ── */
+  function poll(){
+    try {
+      var sb   = window.parent.document.querySelector('[data-testid="stSidebar"]');
+      var rail = window.parent.document.getElementById('cls-rail');
+      if (!sb || !rail) { setTimeout(poll, 300); return; }
+      function sync() {
+        var w = sb.getBoundingClientRect().width;
+        var collapsed = sb.getAttribute('aria-expanded') === 'false' || w < 60;
+        rail.style.display = collapsed ? 'flex' : 'none';
+      }
+      new MutationObserver(sync).observe(sb, {attributes:true});
+      new ResizeObserver(sync).observe(sb);
+      sync();
+    } catch(e) { setTimeout(poll, 400); }
+  }
+  poll();
 })();
 </script>
 """, height=0)
