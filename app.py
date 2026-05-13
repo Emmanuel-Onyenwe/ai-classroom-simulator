@@ -462,22 +462,38 @@ with st.sidebar:
         # ⬇️ WRAP IN A SCROLLABLE CONTAINER (Height: 240px) ⬇️
         with st.container(height=240, border=False):
             for s in recent:
-                label = (s.get("title") or "Untitled")[:42]
-                if st.button(f"↩  {label}", key=f"sess_{s['id']}", use_container_width=True):
-                    try:
-                        row = (supabase.table("chat_sessions").select("messages")
-                               .eq("id", s["id"]).single().execute())
-                        restored = json.loads(row.data["messages"])
-                        st.session_state.messages   = restored
-                        st.session_state.session_id = s["id"]
-                        st.session_state.pdf_text   = " "
-                        st.session_state.pop("chat", None)
-                        st.rerun()
-                    except Exception:
-                        st.error("Could not restore session.")
-    else:
-        st.caption("No recent sessions yet")
-
+                # Create a row: 80% for the name, 20% for the delete button
+                col_load, col_del = st.columns([5, 1])
+                
+                label = (s.get("title") or "Untitled")[:36]
+                
+                with col_load:
+                    if st.button(f"↩  {label}", key=f"sess_{s['id']}", use_container_width=True):
+                        try:
+                            row = (supabase.table("chat_sessions").select("messages")
+                                   .eq("id", s["id"]).single().execute())
+                            restored = json.loads(row.data["messages"])
+                            st.session_state.messages   = restored
+                            st.session_state.session_id = s["id"]
+                            st.session_state.pdf_text   = " "
+                            st.session_state.pop("chat", None)
+                            st.rerun()
+                        except Exception:
+                            st.error("Could not restore session.")
+                
+                with col_del:
+                    if st.button("🗑️", key=f"del_{s['id']}", help="Delete this lecture"):
+                        try:
+                            # Delete from database
+                            supabase.table("chat_sessions").delete().eq("id", s["id"]).execute()
+                            # If they deleted the active session, clear the screen
+                            if st.session_state.get("session_id") == s["id"]:
+                                for k in ["messages","pdf_text","chat","session_id"]:
+                                    st.session_state.pop(k, None)
+                            st.rerun()
+                        except Exception as e:
+                            st.error("Failed to delete.")
+    
     st.markdown("---")
     if st.button("Clear Session", key="cls_btn"):
         for k in ["messages","pdf_text","chat","session_id"]:
@@ -770,8 +786,9 @@ def extract_topic(text: str) -> str:
 last_prof = next((m for m in reversed(st.session_state.messages) if m["role"]=="assistant"), None)
 if last_prof:
     topic = extract_topic(last_prof.get("content",""))
+    # ── Clickable Banner ──
     st.markdown(f"""
-    <div class="now-covering">
+    <div class="now-covering" title="Jump to current topic" onclick="window.parent.scrollTo({{top: window.parent.document.body.scrollHeight, behavior: 'smooth'}});">
       <div class="nc-dot"></div>
       <span class="nc-text">
         <span style="color:#b0a0dc;font-weight:500;">Now covering</span>
