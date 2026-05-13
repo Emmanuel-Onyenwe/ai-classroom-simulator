@@ -225,24 +225,22 @@ div[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
   font-size:0.72rem; font-weight:600; color:#fff; font-family:'Sora',sans-serif;
 }
 
-/* ── LOGIN TABS & FORM CENTERING ── */
-[data-testid="stTabs"] {
-  max-width: 380px !important; /* Limits width to look like a neat card */
-  margin: 0 auto !important;   /* Centers the entire block horizontally */
+/* ── LOGIN TABS & FORM CENTERING (NUCLEAR FIX) ── */
+div[data-testid="stTabs"] {
+  max-width: 400px !important; 
+  margin: 0 auto !important; 
 }
-[data-testid="stTabs"] > div:first-child {
-  display: flex !important;
-  justify-content: center !important;
-}
-.stTabs [data-baseweb="tab-list"] {
+div[data-testid="stTabs"] div[role="tablist"] {
   display: flex !important;
   width: 100% !important;
-  gap: 4px !important;
-}
-.stTabs [data-baseweb="tab"] {
-  flex: 1 !important; /* Forces "Sign In" and "Create Account" to be exactly equal width */
-  text-align: center !important;
   justify-content: center !important;
+  gap: 6px !important;
+}
+div[data-testid="stTabs"] button[role="tab"] {
+  flex: 1 1 0px !important; 
+  width: 100% !important;
+  justify-content: center !important;
+  text-align: center !important;
 }
 
 /* ── MOBILE ── */
