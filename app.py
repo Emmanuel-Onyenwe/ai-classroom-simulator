@@ -198,7 +198,7 @@ div[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
 /* ── NOW COVERING BANNER (FLOATING WIDGET) ── */
 .now-covering {
   position: fixed !important;
-  top: 65px; /* Sits right below the top menu bar */
+  top: 55px; /* Pushed up slightly to match the new headroom */
   right: 24px;
   z-index: 999999;
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px 8px 14px;
@@ -207,7 +207,12 @@ div[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
   max-width: 350px; overflow: hidden;
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+  cursor: pointer; /* ⬅️ ADDED: Makes it look clickable */
+}
+.now-covering:hover {
+  background: rgba(139,122,204,0.15); /* ⬅️ ADDED: Highlight on hover */
+  border-color: rgba(139,122,204,0.6);
 }
 .nc-dot {
   width: 6px; height: 6px; border-radius: 50%; background: #8b7acc; flex-shrink: 0;
