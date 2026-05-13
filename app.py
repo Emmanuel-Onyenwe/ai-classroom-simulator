@@ -463,6 +463,29 @@ st.markdown(f"""
   <div class="rt">
     <div class="ric brand" title="AI Classroom">◈</div>
     <div class="rsep"></div>
+    
+    <div class="ric" title="New Lecture" onclick="window.parent.document.querySelector('[data-testid=`stSidebarCollapseButton`]').click()">➕</div>
+    
+    <div class="ric" title="Upload PDF">⬆</div>
+    <div class="ric" title="Teacher Voice">♪</div>
+    <div class="ric" title="Recent Sessions">⏱</div>
+    <div class="rsep"></div>
+    <div class="ric" title="Export">⬇</div>
+    <div class="ric" title="Clear Session">✕</div>
+  </div>
+  <div class="rb">
+    <div class="ravatar" title="{uemail}">{initial}</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)# ── Icon rail HTML (injected directly into page DOM) ──────────────────────────
+st.markdown(f"""
+<div id="cls-rail">
+  <div class="rt">
+    <div class="ric brand" title="AI Classroom">◈</div>
+    <div class="rsep"></div>
+    
+    <div class="ric" title="New Lecture" onclick="window.parent.document.querySelector('[data-testid=`stSidebarCollapseButton`]').click()">➕</div>
+    
     <div class="ric" title="Upload PDF">⬆</div>
     <div class="ric" title="Teacher Voice">♪</div>
     <div class="ric" title="Recent Sessions">⏱</div>
