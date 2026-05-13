@@ -45,6 +45,13 @@ st.markdown("""
   --violet:    #8b7acc;
 }
 
+/* ── REDUCE HEADROOM (Push everything up) ── */
+.block-container {
+  padding-top: 2rem !important;
+  padding-bottom: 2rem !important;
+  max-width: 95% !important; /* Gives a bit more breathing room on the sides too */
+}
+
 html,body,[class*="css"],.stApp {
   font-family:'DM Sans',sans-serif !important;
   background:var(--bg) !important;
