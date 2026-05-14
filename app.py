@@ -28,6 +28,7 @@ st.set_page_config(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 0.1  GLOBAL CSS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
@@ -43,6 +44,32 @@ st.markdown("""
   --amber:     #c9a45a;
   --teal:      #3ca18d;
   --violet:    #8b7acc;
+}
+/* ── GEMINI SIDEBAR LIST STYLE ── */
+[data-testid="stSidebar"] [data-testid="column"] .stButton button {
+  background: transparent !important;
+  border: none !important;
+  color: #c8c8e8 !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+  font-size: 0.72rem !important;
+  padding: 4px 6px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: block !important;
+}
+[data-testid="stSidebar"] [data-testid="column"] .stButton button:hover {
+  background: rgba(255,255,255,0.06) !important;
+  color: #fff !important;
+}
+[data-testid="stSidebar"] [data-testid="column"] .stPopover button {
+  background: transparent !important;
+  border: none !important;
+  padding: 4px !important;
+  display: flex !important;
+  justify-content: center !important;
+  font-size: 1rem !important;
 }
 
 /* ── REDUCE HEADROOM (Push everything up) ── */
@@ -340,12 +367,9 @@ def save_session_to_db():
         return
     sid = st.session_state.setdefault("session_id", str(uuid_lib.uuid4()))
     
-    # 1. Grab PDF Name (Cap at 12 chars so it doesn't hog space)
     pdf_name = st.session_state.get("pdf_name", "Lecture")
-    if len(pdf_name) > 12:
-        pdf_name = pdf_name[:10] + "…"
+    if len(pdf_name) > 12: pdf_name = pdf_name[:10] + "…"
 
-    # 2. Grab Current AI Topic (Auto-updates as chat progresses)
     topic = "New Session"
     last_prof = next((m for m in reversed(st.session_state.messages) if m["role"] == "assistant"), None)
     if last_prof:
@@ -357,16 +381,26 @@ def save_session_to_db():
                 topic = (s[:30] + "…") if len(s) > 30 else s
                 break
 
-    # 3. Fuse them together & SAVE ALL DATA (including audio/plots)
     title = f"{pdf_name}: {topic}"
-
-    lean = [{
-        "role": m["role"], 
-        "content": m.get("content",""),
-        "audio_html": m.get("audio_html", ""),       # ⬅️ FIX: Saves the audio player
-        "plot_formula": m.get("plot_formula", "")    # ⬅️ FIX: Saves the graphs
-    } for m in st.session_state.messages]
+    
+    # ⬅️ FIX: Explicitly capture EVERYTHING including audio and plots
+    lean = []
+    for m in st.session_state.messages:
+        lean.append({
+            "role": m["role"],
+            "content": m.get("content", ""),
+            "audio_html": m.get("audio_html", ""),
+            "plot_formula": m.get("plot_formula", "")
+        })
+        
     try:
+        # ⬅️ FIX: Auto-delete oldest chat if user hits 50
+        count_res = supabase.table("chat_sessions").select("id", count="exact").eq("user_id", str(st.session_state.user.id)).execute()
+        if count_res.count and count_res.count >= 50:
+            oldest = supabase.table("chat_sessions").select("id").eq("user_id", str(st.session_state.user.id)).order("updated_at", desc=False).limit(1).execute()
+            if oldest.data:
+                supabase.table("chat_sessions").delete().eq("id", oldest.data[0]["id"]).execute()
+
         supabase.table("chat_sessions").upsert({
             "id": sid,
             "user_id": str(st.session_state.user.id),
@@ -374,8 +408,8 @@ def save_session_to_db():
             "messages": json.dumps(lean),
             "updated_at": "now()",
         }).execute()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"DB Save Error: {e}") # Fails silently for user, prints to your server log
 
 def load_recent_sessions():
     if not st.session_state.get("user"):
@@ -495,19 +529,21 @@ with st.sidebar:
     recent = load_recent_sessions()
     if recent:
         # ⬇️ WRAP IN A SCROLLABLE CONTAINER (Height: 240px) ⬇️
-        with st.container(height=240, border=False):
+        with st.container(height=280, border=False):
             for s in recent:
-                # 85% for the chat name, 15% for the three-dot menu
-                col_load, col_menu = st.columns([0.85, 0.15], vertical_alignment="center")
+                is_active = (st.session_state.get("session_id") == s["id"])
                 
-                label = (s.get("title") or "Untitled")[:32]
+                # ⬅️ FIX: Capitalized, truncated, and active marker
+                prefix = "🟢 " if is_active else ""
+                label = (s.get("title") or "UNTITLED")[:28].upper()
+                
+                col_load, col_menu = st.columns([0.85, 0.15], gap="small", vertical_alignment="center")
                 
                 with col_load:
-                    if st.button(f"{label}", key=f"sess_{s['id']}", use_container_width=True):
+                    if st.button(f"{prefix}{label}", key=f"sess_{s['id']}", use_container_width=True):
                         try:
                             row = (supabase.table("chat_sessions").select("messages").eq("id", s["id"]).single().execute())
-                            restored = json.loads(row.data["messages"])
-                            st.session_state.messages   = restored
+                            st.session_state.messages   = json.loads(row.data["messages"])
                             st.session_state.session_id = s["id"]
                             st.session_state.pdf_text   = " "
                             st.session_state.pop("chat", None)
@@ -516,15 +552,14 @@ with st.sidebar:
                             st.error("Could not restore session.")
                 
                 with col_menu:
-                    # ⬅️ FIX: Streamlit Popover creates a sleek drop-down menu!
                     with st.popover("⋮", use_container_width=True):
-                        
-                        # You can easily add a st.button("✏️ Rename") here later!
-                        
+                        st.button("✏️ Rename", key=f"ren_{s['id']}", use_container_width=True)
+                        st.button("📌 Pin", key=f"pin_{s['id']}", use_container_width=True)
+                        st.button("🔗 Share", key=f"shr_{s['id']}", use_container_width=True)
                         if st.button("🗑️ Delete", key=f"del_{s['id']}", use_container_width=True):
                             try:
                                 supabase.table("chat_sessions").delete().eq("id", s["id"]).execute()
-                                if st.session_state.get("session_id") == s["id"]:
+                                if is_active:
                                     for k in ["messages","pdf_text","chat","session_id"]:
                                         st.session_state.pop(k, None)
                                 st.rerun()
@@ -824,8 +859,8 @@ last_prof = next((m for m in reversed(st.session_state.messages) if m["role"]=="
 if last_prof:
     topic = extract_topic(last_prof.get("content",""))
    # ── Clickable Banner ──
-    # JS to find the last chat bubble and scroll it to the center
-    scroll_js = "var msgs=window.parent.document.querySelectorAll('[data-testid=&quot;stChatMessage&quot;]'); if(msgs.length){msgs[msgs.length-1].scrollIntoView({behavior: 'smooth', block: 'center'});}"
+    # ⬅️ FIX: Bulletproof JS to find the last message and center it
+    scroll_js = "var msgs=window.parent.document.querySelectorAll('[data-testid=&quot;stChatMessage&quot;]'); if(msgs.length>0){msgs[msgs.length-1].scrollIntoView({behavior:'smooth', block:'center'});}"
 
     st.markdown(f"""
     <div class="now-covering" title="Jump to current topic" onclick="{scroll_js}">
