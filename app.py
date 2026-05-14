@@ -198,9 +198,9 @@ div[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
 /* ── NOW COVERING BANNER (FLOATING WIDGET) ── */
 .now-covering {
   position: fixed !important;
-  top: 55px; /* Pushed up slightly to match the new headroom */
+  top: 55px;
   right: 24px;
-  z-index: 999999;
+  z-index: 99990; /* ⬅️ LOWERED: Sidebar will now cover it on mobile */
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px 8px 14px;
   background: rgba(9,9,16,0.85); border: 1px solid rgba(139,122,204,0.3);
   border-radius: 30px; font-size: 0.75rem; color: #b0a0dc;
@@ -208,15 +208,45 @@ div[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   transition: all 0.2s ease;
-  cursor: pointer; /* ⬅️ ADDED: Makes it look clickable */
+  cursor: pointer;
 }
 .now-covering:hover {
-  background: rgba(139,122,204,0.15); /* ⬅️ ADDED: Highlight on hover */
-  border-color: rgba(139,122,204,0.6);
+  background: rgba(139,122,204,0.15); border-color: rgba(139,122,204,0.6);
 }
 .nc-dot {
   width: 6px; height: 6px; border-radius: 50%; background: #8b7acc; flex-shrink: 0;
   animation: ncpulse 2s ease-in-out infinite;
+}
+@keyframes ncpulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+.nc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddddf0; }
+
+/* ── MOBILE OVERRIDES & BOTTOM PADDING ── */
+@media (max-width: 768px) {
+  .now-covering {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: max-content;
+    max-width: 85vw;
+  }
+}
+/* Kills default footer and shrinks bottom space */
+footer { visibility: hidden !important; }
+.block-container { padding-bottom: 2rem !important; }
+
+/* ── MOBILE OVERRIDES & BOTTOM PADDING ── */
+@media (max-width: 768px) {
+  .now-covering {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: max-content;
+    max-width: 85vw;
+  }
+}
+/* Kills default footer and shrinks bottom space */
+footer { visibility: hidden !important; }
+.block-container { padding-bottom: 2rem !important; }
 }
 @keyframes ncpulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
 .nc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddddf0; }
@@ -327,10 +357,15 @@ def save_session_to_db():
                 topic = (s[:30] + "…") if len(s) > 30 else s
                 break
 
-    # 3. Fuse them together
+    # 3. Fuse them together & SAVE ALL DATA (including audio/plots)
     title = f"{pdf_name}: {topic}"
 
-    lean = [{"role": m["role"], "content": m.get("content","")} for m in st.session_state.messages]
+    lean = [{
+        "role": m["role"], 
+        "content": m.get("content",""),
+        "audio_html": m.get("audio_html", ""),       # ⬅️ FIX: Saves the audio player
+        "plot_formula": m.get("plot_formula", "")    # ⬅️ FIX: Saves the graphs
+    } for m in st.session_state.messages]
     try:
         supabase.table("chat_sessions").upsert({
             "id": sid,
@@ -462,16 +497,15 @@ with st.sidebar:
         # ⬇️ WRAP IN A SCROLLABLE CONTAINER (Height: 240px) ⬇️
         with st.container(height=240, border=False):
             for s in recent:
-                # Create a row: 80% for the name, 20% for the delete button
-                col_load, col_del = st.columns([5, 1])
+                # 85% for the chat name, 15% for the three-dot menu
+                col_load, col_menu = st.columns([0.85, 0.15], vertical_alignment="center")
                 
-                label = (s.get("title") or "Untitled")[:36]
+                label = (s.get("title") or "Untitled")[:32]
                 
                 with col_load:
-                    if st.button(f"↩  {label}", key=f"sess_{s['id']}", use_container_width=True):
+                    if st.button(f"{label}", key=f"sess_{s['id']}", use_container_width=True):
                         try:
-                            row = (supabase.table("chat_sessions").select("messages")
-                                   .eq("id", s["id"]).single().execute())
+                            row = (supabase.table("chat_sessions").select("messages").eq("id", s["id"]).single().execute())
                             restored = json.loads(row.data["messages"])
                             st.session_state.messages   = restored
                             st.session_state.session_id = s["id"]
@@ -481,18 +515,21 @@ with st.sidebar:
                         except Exception:
                             st.error("Could not restore session.")
                 
-                with col_del:
-                    if st.button("🗑️", key=f"del_{s['id']}", help="Delete this lecture"):
-                        try:
-                            # Delete from database
-                            supabase.table("chat_sessions").delete().eq("id", s["id"]).execute()
-                            # If they deleted the active session, clear the screen
-                            if st.session_state.get("session_id") == s["id"]:
-                                for k in ["messages","pdf_text","chat","session_id"]:
-                                    st.session_state.pop(k, None)
-                            st.rerun()
-                        except Exception as e:
-                            st.error("Failed to delete.")
+                with col_menu:
+                    # ⬅️ FIX: Streamlit Popover creates a sleek drop-down menu!
+                    with st.popover("⋮", use_container_width=True):
+                        
+                        # You can easily add a st.button("✏️ Rename") here later!
+                        
+                        if st.button("🗑️ Delete", key=f"del_{s['id']}", use_container_width=True):
+                            try:
+                                supabase.table("chat_sessions").delete().eq("id", s["id"]).execute()
+                                if st.session_state.get("session_id") == s["id"]:
+                                    for k in ["messages","pdf_text","chat","session_id"]:
+                                        st.session_state.pop(k, None)
+                                st.rerun()
+                            except Exception:
+                                st.error("Failed to delete.")
     
     st.markdown("---")
     if st.button("Clear Session", key="cls_btn"):
@@ -786,9 +823,12 @@ def extract_topic(text: str) -> str:
 last_prof = next((m for m in reversed(st.session_state.messages) if m["role"]=="assistant"), None)
 if last_prof:
     topic = extract_topic(last_prof.get("content",""))
-    # ── Clickable Banner ──
+   # ── Clickable Banner ──
+    # JS to find the last chat bubble and scroll it to the center
+    scroll_js = "var msgs=window.parent.document.querySelectorAll('[data-testid=&quot;stChatMessage&quot;]'); if(msgs.length){msgs[msgs.length-1].scrollIntoView({behavior: 'smooth', block: 'center'});}"
+
     st.markdown(f"""
-    <div class="now-covering" title="Jump to current topic" onclick="window.parent.scrollTo({{top: window.parent.document.body.scrollHeight, behavior: 'smooth'}});">
+    <div class="now-covering" title="Jump to current topic" onclick="{scroll_js}">
       <div class="nc-dot"></div>
       <span class="nc-text">
         <span style="color:#b0a0dc;font-weight:500;">Now covering</span>
@@ -796,7 +836,6 @@ if last_prof:
       </span>
     </div>
     """, unsafe_allow_html=True)
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 10. CHAT HISTORY
