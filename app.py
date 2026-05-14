@@ -26,9 +26,9 @@ st.set_page_config(
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # 0.1  GLOBAL CSS
 # ═══════════════════════════════════════════════════════════════════════════════
-
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
@@ -45,38 +45,56 @@ st.markdown("""
   --teal:      #3ca18d;
   --violet:    #8b7acc;
 }
-/* ── GEMINI SIDEBAR LIST STYLE ── */
-[data-testid="stSidebar"] [data-testid="column"] .stButton button {
-  background: transparent !important;
-  border: none !important;
-  color: #c8c8e8 !important;
-  text-align: left !important;
-  justify-content: flex-start !important;
-  font-size: 0.72rem !important;
-  padding: 4px 6px !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  display: block !important;
-}
-[data-testid="stSidebar"] [data-testid="column"] .stButton button:hover {
-  background: rgba(255,255,255,0.06) !important;
-  color: #fff !important;
-}
-[data-testid="stSidebar"] [data-testid="column"] .stPopover button {
-  background: transparent !important;
-  border: none !important;
-  padding: 4px !important;
-  display: flex !important;
-  justify-content: center !important;
-  font-size: 1rem !important;
+
+/* ── 1. BASE LAYOUT & HEADROOM ── */
+html, body, [class*="css"], .stApp {
+  font-family: 'DM Sans', sans-serif !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
 }
 
-/* ── REDUCE HEADROOM (Push everything up) ── */
 .block-container {
   padding-top: 2rem !important;
   padding-bottom: 2rem !important;
-  max-width: 95% !important; /* Gives a bit more breathing room on the sides too */
+  max-width: 95% !important;
+}
+footer { visibility: hidden !important; }
+
+/* ── 2. GEMINI SIDEBAR LIST STYLE (Recent Sessions) ── */
+[data-testid="stSidebar"] [data-testid="column"] .stButton button {
+  background: transparent !important; 
+  border: none !important; 
+  color: #b0b0d0 !important;
+  text-align: left !important; 
+  justify-content: flex-start !important; 
+  font-size: 0.72rem !important;
+  letter-spacing: 0.06em !important;
+  padding: 5px 6px !important; 
+  white-space: nowrap !important; 
+  overflow: hidden !important; 
+  text-overflow: ellipsis !important; 
+  border-radius: 6px !important;
+  display: block !important;
+}
+[data-testid="stSidebar"] [data-testid="column"] .stButton button:hover {
+  background: rgba(255,255,255,0.06) !important; 
+  color: #ffffff !important;
+}
+
+/* 3-dot Popover Trigger */
+[data-testid="stSidebar"] [data-testid="column"] [data-testid="stPopover"] button {
+  background: transparent !important; 
+  border: none !important; 
+  padding: 4px 6px !important; 
+  font-size: 1rem !important; 
+  color: #5a5a80 !important;
+  display: flex !important; 
+  justify-content: center !important; 
+  border-radius: 5px !important;
+}
+[data-testid="stSidebar"] [data-testid="column"] [data-testid="stPopover"] button:hover {
+  background: rgba(255,255,255,0.07) !important;
+  color: #adadce !important;
 }
 
 html,body,[class*="css"],.stApp {
@@ -373,28 +391,24 @@ def save_session_to_db():
     topic = "New Session"
     last_prof = next((m for m in reversed(st.session_state.messages) if m["role"] == "assistant"), None)
     if last_prof:
-        clean = re.sub(r'<[^>]+>', '', last_prof.get("content",""))
-        clean = re.sub(r'[*#_`$\\]+', '', clean).strip()
+        clean = re.sub(r'<[^>]+>|[*#_`$\\]+', '', last_prof.get("content","")).strip()
         for s in re.split(r'(?<=[.!?])\s+', clean):
             s = s.strip()
             if len(s) > 10:
                 topic = (s[:30] + "…") if len(s) > 30 else s
                 break
-
     title = f"{pdf_name}: {topic}"
     
-    # ⬅️ FIX: Explicitly capture EVERYTHING including audio and plots
-    lean = []
-    for m in st.session_state.messages:
-        lean.append({
-            "role": m["role"],
-            "content": m.get("content", ""),
-            "audio_html": m.get("audio_html", ""),
-            "plot_formula": m.get("plot_formula", "")
-        })
+    # ⬅️ FIX: Saves EVERYTHING (Audio + Plots)
+    lean = [{
+        "role": m["role"], 
+        "content": m.get("content", ""), 
+        "audio_html": m.get("audio_html", ""), 
+        "plot_formula": m.get("plot_formula", "")
+    } for m in st.session_state.messages]
         
     try:
-        # ⬅️ FIX: Auto-delete oldest chat if user hits 50
+        # ⬅️ FIX: 50-Chat Auto-Purge
         count_res = supabase.table("chat_sessions").select("id", count="exact").eq("user_id", str(st.session_state.user.id)).execute()
         if count_res.count and count_res.count >= 50:
             oldest = supabase.table("chat_sessions").select("id").eq("user_id", str(st.session_state.user.id)).order("updated_at", desc=False).limit(1).execute()
@@ -409,7 +423,7 @@ def save_session_to_db():
             "updated_at": "now()",
         }).execute()
     except Exception as e:
-        print(f"DB Save Error: {e}") # Fails silently for user, prints to your server log
+        print(f"DB Save Error: {e}")
 
 def load_recent_sessions():
     if not st.session_state.get("user"):
@@ -532,8 +546,6 @@ with st.sidebar:
         with st.container(height=280, border=False):
             for s in recent:
                 is_active = (st.session_state.get("session_id") == s["id"])
-                
-                # ⬅️ FIX: Capitalized, truncated, and active marker
                 prefix = "🟢 " if is_active else ""
                 label = (s.get("title") or "UNTITLED")[:28].upper()
                 
@@ -859,11 +871,10 @@ last_prof = next((m for m in reversed(st.session_state.messages) if m["role"]=="
 if last_prof:
     topic = extract_topic(last_prof.get("content",""))
    # ── Clickable Banner ──
-    # ⬅️ FIX: Bulletproof JS to find the last message and center it
     scroll_js = "var msgs=window.parent.document.querySelectorAll('[data-testid=&quot;stChatMessage&quot;]'); if(msgs.length>0){msgs[msgs.length-1].scrollIntoView({behavior:'smooth', block:'center'});}"
 
     st.markdown(f"""
-    <div class="now-covering" title="Jump to current topic" onclick="{scroll_js}">
+    <div class="now-covering" style="cursor: pointer;" title="Jump to current topic" onclick="{scroll_js}">
       <div class="nc-dot"></div>
       <span class="nc-text">
         <span style="color:#b0a0dc;font-weight:500;">Now covering</span>
